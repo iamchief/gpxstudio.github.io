@@ -46,7 +46,6 @@ export default class Total {
         this.traces.splice(index, 1);
         for (var i=index; i<this.traces.length; i++)
             this.traces[i].index--;
-        this.buttons.updateTabWidth();
         if (index > 0) this.traces[index-1].focus();
         else this.focus();
     }
@@ -215,8 +214,8 @@ export default class Total {
 
     /*** OUTPUT ***/
 
-    outputGPX(mergeAll, incl_time, incl_hr, incl_atemp, incl_cad) {
-        if (incl_time && this.getMovingTime() > 0) { // at least one track has time data
+    outputGPX(mergeAll, incl_time, incl_hr, incl_atemp, incl_cad, trace_idx) {
+        if (incl_time && this.getMovingTime() > 0 && trace_idx === null) { // at least one track has time data
             for (var i=0; i<this.traces.length; i++) this.traces[i].timeConsistency();
             const avg = this.getMovingSpeed(true);
             var lastPoints = null;
@@ -256,15 +255,18 @@ export default class Total {
             }
         }
 
-        const xmlStart = `<?xml version="1.0" encoding="UTF-8"?>
+        const xmlStart1 = `<?xml version="1.0" encoding="UTF-8"?>
 <gpx xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://www.topografix.com/GPX/1/1" xsi:schemaLocation="http://www.topografix.com/GPX/1/1 http://www.topografix.com/GPX/1/1/gpx.xsd http://www.garmin.com/xmlschemas/GpxExtensions/v3 http://www.garmin.com/xmlschemas/GpxExtensionsv3.xsd http://www.garmin.com/xmlschemas/TrackPointExtension/v1 http://www.garmin.com/xmlschemas/TrackPointExtensionv1.xsd" xmlns:gpxtpx="http://www.garmin.com/xmlschemas/TrackPointExtension/v1" xmlns:gpxx="http://www.garmin.com/xmlschemas/GpxExtensions/v3" version="1.1" creator="https://gpxstudio.github.io">
 <metadata>
-    <name>Activity</name>
-    <author>gpx.studio</author>
-    <type>`+(this.buttons.cycling ? 'Cycling' : 'Running')+`</type>
-    <link>https://gpxstudio.github.io</link>
+    <name>`;
+        const xmlStart2 = `</name>
+    <author>
+        <name>gpx.studio</name>
+        <link href="https://gpxstudio.github.io"></link>
+    </author>
 </metadata>
 <trk>
+    <type>`+(this.buttons.cycling ? 'Cycling' : 'Running')+`</type>
     `;
 
         const xmlEnd1 = `</trk>
@@ -276,11 +278,11 @@ export default class Total {
         var waypointsOutput = '';
 
         const totalData = this.additionalAvgData;
-        for (var i=0; i<this.traces.length; i++) {
+        for (var i=(trace_idx!==undefined ? trace_idx : 0); i<(trace_idx!==undefined ? trace_idx+1 : this.traces.length); i++) {
             const data = this.traces[i].additionalAvgData;
-            const hr = data.hr ? data.hr : totalData.hr;
-            const atemp = data.atemp ? data.atemp : totalData.atemp;
-            const cad = data.cad ? data.cad : totalData.cad;
+            const hr = data.hr ? data.hr : (totalData ? totalData.hr : null);
+            const atemp = data.atemp ? data.atemp : (totalData ? totalData.atemp : null);
+            const cad = data.cad ? data.cad : (totalData ? totalData.cad : null);
 
             const layers = this.traces[i].getLayers();
             for (var l=0; l<layers.length; l++) if (layers[l]._latlngs) {
@@ -347,14 +349,8 @@ export default class Total {
                 const point = waypoints[j];
                 waypointsOutput += `<wpt lat="${point._latlng.lat.toFixed(6)}" lon="${point._latlng.lng.toFixed(6)}">
 `;
-                if (point._latlng.meta) {
-                    waypointsOutput += `    <ele>${point._latlng.meta.ele.toFixed(1)}</ele>
+                waypointsOutput += `    <ele>${point._latlng.meta.ele.toFixed(1)}</ele>
 `;
-                } else if (point.ele >= 0) {
-                    waypointsOutput += `    <ele>${point.ele.toFixed(1)}</ele>
-`;
-                }
-
                 waypointsOutput += `    <name>`+this.encodeString(point.name)+`</name>
 `;
                 waypointsOutput += `    <desc>`+this.encodeString(point.desc)+`</desc>
@@ -374,7 +370,7 @@ export default class Total {
 ` : '';
                 output.push({
                     name: this.traces[i].name + '.gpx',
-                    text: (xmlStart+xmlOutput+xmlEnd1+waypointsOutput+colorOutput+xmlEnd2)
+                    text: (xmlStart1+this.traces[i].name+xmlStart2+xmlOutput+xmlEnd1+waypointsOutput+colorOutput+xmlEnd2)
                 });
                 xmlOutput = '';
                 waypointsOutput = '';
@@ -384,7 +380,7 @@ export default class Total {
         if (mergeAll && this.traces.length > 1) {
             output.push({
                 name: 'track.gpx',
-                text: (xmlStart+xmlOutput+xmlEnd1+waypointsOutput+xmlEnd2)
+                text: (xmlStart1+'Activity'+xmlStart2+xmlOutput+xmlEnd1+waypointsOutput+xmlEnd2)
             });
         }
 

@@ -290,14 +290,14 @@ html, body {
 
 #end-point.slider::-webkit-slider-thumb {
   background: #f74848;
-  background-image: url('end.png');
+  background-image: url('./res/end.png');
   background-size: 20px;
   background-position: center center;
 }
 
 #end-point.slider::-moz-range-thumb {
   background: #f74848;
-  background-image: url('end.png');
+  background-image: url('./res/end.png');
   background-size: 20px;
   background-position: center center;
 }
@@ -379,16 +379,15 @@ html, body {
 }
 
 #sortable {
-    list-style-type: none;
-    margin: 0;
     padding: 0;
+    overflow-x: scroll;
+    white-space: nowrap;
 }
 .tab {
     padding: 2px 4px;
     font-size: 10px;
     color: #777777;
-    display:block;
-    float:left;
+    display:inline-block;
     -webkit-touch-callout: none;
     -webkit-user-select: none;
     -khtml-user-select: none;
@@ -416,6 +415,8 @@ html, body {
     margin: 0px -4px -2px -4px;
     height: 2px;
 }
+ul::-webkit-scrollbar { display: none; }
+ul { -ms-overflow-style: none; scrollbar-width: none; }
 
 .leaflet-interactive.mouseDown {
     cursor: grabbing !important;
@@ -451,7 +452,7 @@ ul {
 #help-text {
     text-align: justify;
     width: 750px;
-    line-height: 1.3;
+    line-height: 1.2;
     white-space: normal;
 }
 
@@ -487,10 +488,6 @@ ul {
     background: inherit;
 }
 
-.waypoint-input {
-    width: 200px;
-}
-
 .dist-marker {
 	font-size: 10px;
 	color: #000;
@@ -503,4 +500,21 @@ ul {
     margin-top: -7px !important;
     width: fit-content !important;
     height: fit-content !important;
+}
+
+.wpt-cmt img {
+   width: 100%;
+}
+
+.wpt-input {
+    color: black;
+    background: white;
+    padding: 1px 2px;
+    border: solid 1px;
+    border-radius: 2px;
+}
+
+[contenteditable] {
+    -webkit-user-select: text;
+    user-select: text;
 }

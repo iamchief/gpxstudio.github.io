@@ -24,13 +24,14 @@ const options = {
         startIconUrl: '',
         endIconUrl: '',
         shadowUrl: '',
-        wptIconUrls : { '': '../favicon.png' }
+        wptIconUrls : { '': './res/favicon.png' }
     },
     max_point_interval: 10 * 60000,
     gpx_options: {
         joinTrackSegments: false
     }
 };
+const ELEVATION_ZOOM = 8;
 
 export default class Trace {
     constructor(file, name, map, total) {
@@ -72,10 +73,10 @@ export default class Trace {
                 for (var i=0; i<layers.length; i++) {
                     if (layers[i]._latlng) { // wpt
                         trace.waypoints.push(layers[i]);
-                        if (layers[i]._latlng.ele == -1) wptMissingEle.push(layers[i]._latlng);
+                        if (layers[i]._latlng.meta && layers[i]._latlng.meta.ele == -1) wptMissingEle.push(layers[i]._latlng);
                     }
                 }
-                if (wptMissingEle.length > 0) trace.askElevation(wptMissingEle, true);
+                if (wptMissingEle.length > 0) trace.askElevation(wptMissingEle);
             }
             if (this.getLayers().length > 0) total.buttons.updateBounds();
 
@@ -83,7 +84,7 @@ export default class Trace {
             var li = document.createElement("li");
             li.innerHTML = name+'<div class="tab-color" style="background:'+trace.normal_style.color+';">';
             li.title = name;
-            li.classList.add('tab');
+            li.classList.add('tab','tab-draggable');
             li.trace = trace;
             li.addEventListener('click', function (e) {
                 if (total.to_merge && total.to_merge != trace && total.buttons.window_open == total.buttons.merge_window) {
@@ -113,7 +114,6 @@ export default class Trace {
             ul.appendChild(li);
 
             trace.tab = li;
-            total.buttons.updateTabWidth();
             total.buttons.circlesToFront();
 
             trace.focus();
@@ -133,6 +133,7 @@ export default class Trace {
                 marker.fire('mousedown');
             }
         });
+        L.DomEvent.on(this.gpx, 'dblclick', L.DomEvent.stopPropagation);
 
         if (file === undefined) this.gpx.fire('loaded');
     }
@@ -144,7 +145,6 @@ export default class Trace {
             this.name = newname;
             this.tab.innerHTML = newname+'<div class="tab-color" style="background:'+this.normal_style.color+';">';
             this.tab.title = newname;
-            this.total.buttons.updateTabWidth();
         }
         this.renaming = false;
     }
@@ -179,7 +179,7 @@ export default class Trace {
 
         for (var i=0; i<this.waypoints.length; i++) {
             const marker = this.waypoints[i];
-            const newMarker = newTrace.gpx._get_marker(marker._latlng, marker.ele, marker.sym, marker.name, marker.desc, marker.cmt, this.gpx.options);
+            const newMarker = newTrace.gpx._get_marker(marker._latlng, marker.sym, marker.name, marker.desc, marker.cmt, this.gpx.options);
             newTrace.gpx.getLayers()[0].addLayer(newMarker);
             newTrace.waypoints.push(newMarker);
         }
@@ -213,6 +213,7 @@ export default class Trace {
         this.updateExtract();
         this.showChevrons();
         this.showDistanceMarkers();
+        if (!this.buttons.embedding) this.tab.scrollIntoView();
     }
 
     unfocus() {
@@ -840,7 +841,7 @@ export default class Trace {
 
         for (var i=0; i<trace.waypoints.length; i++) {
             const marker = trace.waypoints[i];
-            const newMarker = this.gpx._get_marker(marker._latlng, marker.ele, marker.sym, marker.name, marker.desc, marker.cmt, this.gpx.options);
+            const newMarker = this.gpx._get_marker(marker._latlng, marker.sym, marker.name, marker.desc, marker.cmt, this.gpx.options);
             this.gpx.getLayers()[0].addLayer(newMarker);
             this.waypoints.push(newMarker);
         }
@@ -894,7 +895,7 @@ export default class Trace {
 
             for (var w=0; w<this.waypoints.length; w++) if (closestLayers[w].layers.includes(layers[l])) {
                 const marker = this.waypoints[w];
-                const newMarker = newTrace.gpx._get_marker(marker._latlng, marker.ele, marker.sym, marker.name, marker.desc, marker.cmt, this.gpx.options);
+                const newMarker = newTrace.gpx._get_marker(marker._latlng, marker.sym, marker.name, marker.desc, marker.cmt, this.gpx.options);
                 newTrace.gpx.getLayers()[0].addLayer(newMarker);
                 newTrace.waypoints.push(newMarker);
             }
@@ -944,8 +945,8 @@ export default class Trace {
 
         if (this.buttons.routing && len > 1) this.askRoute2(this._editMarkers[len-2]._pt, this._editMarkers[len-1]._pt, layer);
         else {
-            this.redraw();
-            this.askElevation([pt]);
+            const prec_pt = this._editMarkers[len-1]._prec;
+            this.addRoute2(this.getIntermediatePoints(prec_pt, pt), prec_pt, pt, layer);
         }
     }
 
@@ -978,9 +979,9 @@ export default class Trace {
     }
 
     addWaypoint(latlng) {
+        latlng.meta = {'ele': 0};
         const marker = this.gpx._get_marker(
             latlng,
-            0,
             this.buttons.clone_wpt ? this.buttons.clone_wpt.sym : '',
             this.buttons.clone_wpt ? this.buttons.clone_wpt.name : '',
             this.buttons.clone_wpt ? this.buttons.clone_wpt.desc : '',
@@ -992,7 +993,7 @@ export default class Trace {
         marker.fire('click');
         const edit_marker = document.getElementById('edit' + marker._popup._leaflet_id);
         edit_marker.click();
-        this.askElevation([marker._latlng], true);
+        this.askElevation([marker._latlng]);
         this.buttons.clone_wpt = null;
     }
 
@@ -1095,27 +1096,38 @@ export default class Trace {
     }
 
     updatePointManual(marker, lat, lng) {
-        const points = marker._layer._latlngs;
+        marker._pt.lat = lat;
+        marker._pt.lng = lng;
 
-        const prec_idx = marker._prec.index;
-        const this_idx = marker._pt.index;
-        const succ_idx = marker._succ.index;
+        const new_points = [];
+        if (marker._prec == marker._pt || marker._pt == marker._succ) { // start or end of line
+            new_points.splice(new_points.length, 0, ...this.getIntermediatePoints(marker._prec, marker._succ));
+        } else {
+            new_points.push(marker._pt);
+            new_points.splice(0, 0, ...this.getIntermediatePoints(marker._prec, marker._pt));
+            new_points.splice(new_points.length, 0, ...this.getIntermediatePoints(marker._pt, marker._succ));
+        }
 
-        var a = marker._prec;
-        var b = marker._pt;
-        var c = marker._succ;
+        this.addRoute(new_points, marker._prec, marker._succ, marker._layer);
+    }
 
-        b.lat = lat;
-        b.lng = lng;
+    getIntermediatePoints(a, b) {
+        const pt1 = L.Projection.SphericalMercator.project(a);
+        const pt2 = L.Projection.SphericalMercator.project(b);
 
-        if (succ_idx-this_idx-1 > 0) points.splice(this_idx+1, succ_idx-this_idx-1);
-        if (this_idx-prec_idx-1 > 0) points.splice(prec_idx+1, this_idx-prec_idx-1);
-        this.updatePointIndices();
-        //this.updateEditMarkers();
+        const origin = L.point(0,0);
+        const step = L.point(100, 100);
+        var d_pt = pt2.subtract(pt1);
+        d_pt = d_pt.divideBy(d_pt.distanceTo(origin)/step.distanceTo(origin));
 
-        this.redraw();
-        this.askElevation([b]);
-        this.showDistanceMarkers();
+        const pts = [];
+        for (var i=1; pt1.distanceTo(pt1.add(d_pt.multiplyBy(i))) < pt1.distanceTo(pt2); i++) {
+            const pt = L.Projection.SphericalMercator.unproject(pt1.add(d_pt.multiplyBy(i)));
+            pt.meta = {"time":null, "ele":0};
+            pts.push(pt);
+        }
+
+        return pts;
     }
 
     updatePointRouting(marker, lat, lng) {
@@ -1302,73 +1314,89 @@ export default class Trace {
 
     /*** REQUESTS ***/
 
-    askElevation(points, wpt) {
-        var step = Math.max(10, Math.ceil(points.length / 1000));
-        if (wpt) step = 1;
-        const maxpoints = 2000;
-        var pts = [], start = -1, requests = [];
-        for (var i=0; i<points.length; i += step) {
-            pts.push(points[i]);
-            if (start == -1) start = i;
-            if (pts.length == maxpoints) {
-                requests.push([points.slice(start, i + step - 1), pts]);
-                pts = [];
-                start = -1;
-            }
+    askElevation(points) {
+        const _this = this;
+
+        const toID = function(tile) {
+            var dim = 2 * (1 << tile[2]);
+            return ((dim * tile[1] + tile[0]) * 32) + tile[2];
         }
-        if (pts.length > 0) {
-            pts.push(points[points.length-1]);
-            requests.push([points.slice(start, i + step - 1), pts]);
-        }
-        this.askPointsElevation(requests, step, 0);
-    }
 
-    askPointsElevation(requests, step, depth) {
-        const trace_points = requests[0][0], points = requests[0][1];
-        const Http = new XMLHttpRequest();
-        var url = 'https://api.airmap.com/elevation/v1/ele?points=';
-        for (var i=0; i<points.length; i++) {
-            url += points[i].lat + ',' + points[i].lng;
-            if (i < points.length-1) url += ',';
-        }
-        Http.open("GET", url);
-        Http.setRequestHeader('X-API-Key', this.buttons.airmap_token);
-        Http.setRequestHeader('Content-Type', 'application/json; charset=utf-8');
-        Http.send();
+        const decodeElevation = function (start) {
+            for (var i=(start ? start : 0); i<points.length; i++) {
+                const png = _this.buttons.terrain_cache.get(points[i].tile);
+                if (png === true) { // request not ended
+                    setTimeout(decodeElevation, 500);
+                    return;
+                } else if (png === false) { // tile not found (sea)
+                    points[i].meta.ele = 0;
+                } else { // decode
+                    const x = points[i].tf[0]*png.width;
+                    const _x = Math.floor(x);
+                    const y = points[i].tf[1]*png.height;
+                    const _y = Math.floor(y);
 
-        const trace = this;
-        Http.onreadystatechange = function () {
-            if (this.readyState == 4 && this.status == 200) {
-                var ans = JSON.parse(this.responseText);
+                    const dx = x - _x;
+                    const dy = y - _y;
 
-                for (var i=0; i<trace_points.length; i++) {
-                    if (!trace_points[i].meta) trace_points[i].meta = {ele: 0};
-                    if (Math.floor(i/step) + 1 < ans["data"].length) {
-                        const s = Math.min(step, trace_points.length-step*Math.floor(i/step));
-                        trace_points[i].meta.ele =
-                            (
-                                (s - i % s) * ans["data"][Math.floor(i/step)]
-                                + (i % s) * ans["data"][Math.floor(i/step) + 1]
-                            ) / s;
+                    // bilinear interpolation
+                    const p00 = png.getPixel(_x, _y);
+                    const p01 = png.getPixel(_x, _y+(_y == 511 ? 0 : 1));
+                    const p10 = png.getPixel(_x+(_x == 511 ? 0 : 1), _y);
+                    const p11 = png.getPixel(_x+(_x == 511 ? 0 : 1), _y+(_y == 511 ? 0 : 1));
 
-                    } else trace_points[i].meta.ele = ans["data"][Math.floor(i/step)];
+                    const ele00 = -10000 + ((p00[0] * 256 * 256 + p00[1] * 256 + p00[2]) * 0.1);
+                    const ele01 = -10000 + ((p01[0] * 256 * 256 + p01[1] * 256 + p01[2]) * 0.1);
+                    const ele10 = -10000 + ((p10[0] * 256 * 256 + p10[1] * 256 + p10[2]) * 0.1);
+                    const ele11 = -10000 + ((p11[0] * 256 * 256 + p11[1] * 256 + p11[2]) * 0.1);
+
+                    points[i].meta.ele = ele00 * (1 - dx) * (1 - dy) + ele01 * (1 - dx) * dy + ele10 * dx * (1 - dy) + ele11 * dx * dy;
                 }
+            }
 
-                if (requests.length == 1) {
-                    // update trace info
-                    trace.recomputeStats();
-                    trace.update();
-                } else trace.askPointsElevation(requests.slice(1), step, 0);
-            } else if (this.readyState == 4 && this.status != 200) {
-                console.log('elevation query timeout : retry');
-                if (depth < 10) trace.askPointsElevation(requests, step, depth+1);
+            _this.recomputeStats();
+            _this.update();
+        };
+
+        var found = 0;
+        for (var i=0; i<points.length; i++) {
+            const tf = this.buttons.tilebelt.pointToTileFraction(points[i].lng, points[i].lat, ELEVATION_ZOOM);
+            const tile = tf.map(Math.floor);
+            const tile_id = toID(tile);
+            points[i].tile = tile_id;
+            points[i].tf = [tf[0]-tile[0], tf[1]-tile[1]];
+            if (this.buttons.terrain_cache.has(tile_id)) { // check in cache
+                found++;
+                if (found == points.length) decodeElevation();
+            } else { // request
+                this.buttons.terrain_cache.set(tile_id, true); // already set so only one query
+                const Http = new XMLHttpRequest();
+                Http.responseType = 'arraybuffer';
+                const url = 'https://api.mapbox.com/v4/mapbox.terrain-rgb/'+tile[2]+'/'+tile[0]+'/'+tile[1]+'@2x.pngraw?access_token='+this.buttons.mapbox_token;
+                Http.open("GET", url);
+                Http.send();
+                Http.onreadystatechange = function () {
+                    if (this.readyState == 4 && this.status == 200) {
+                        var reader = new _this.buttons.PNGReader(this.response);
+                        reader.parse(function(err, png){
+                			if (err) console.log('Error parsing terrain PNG:', err);
+                			else _this.buttons.terrain_cache.set(tile_id, png);
+                            found++;
+                            if (found == points.length) decodeElevation();
+                		});
+                    } else if (this.readyState == 4 && this.status == 404) {
+                        found++;
+                        _this.buttons.terrain_cache.set(tile_id, false);
+                        if (found == points.length) decodeElevation();
+                    }
+                }
             }
         }
     }
 
     askRoute(a, b, c, layer) {
         const Http = new XMLHttpRequest();
-        var url = "https://api.mapbox.com/directions/v5/mapbox/" + (this.buttons.cycling ? "cycling" : "walking") + "/";
+        var url = "https://api.mapbox.com/directions/v5/mapbox/" + (this.buttons.cycling ? (this.buttons.driving ? "driving" : "cycling") : "walking") + "/";
         url += a.lng.toFixed(6) + ',' + a.lat.toFixed(6) + ';';
         if (!a.equals(b) && !b.equals(c)) url += b.lng.toFixed(6) + ',' + b.lat.toFixed(6) + ';';
         url += c.lng.toFixed(6) + ',' + c.lat.toFixed(6) ;
@@ -1420,7 +1448,7 @@ export default class Trace {
 
     askRoute2(a, b, layer) {
         const Http = new XMLHttpRequest();
-        var url = "https://api.mapbox.com/directions/v5/mapbox/" + (this.buttons.cycling ? "cycling" : "walking") + "/";
+        var url = "https://api.mapbox.com/directions/v5/mapbox/" + (this.buttons.cycling ? (this.buttons.driving ? "driving" : "cycling") : "walking") + "/";
         url += a.lng.toFixed(6) + ',' + a.lat.toFixed(6) + ';';
         url += b.lng.toFixed(6) + ',' + b.lat.toFixed(6);
         url += "?geometries=geojson&access_token="+this.buttons.mapbox_token+"&overview=full";
@@ -1432,19 +1460,19 @@ export default class Trace {
         Http.onreadystatechange = function () {
             if (this.readyState == 4 && this.status == 200) {
                 var ans = JSON.parse(this.responseText);
-                trace.addRoute2(ans['routes'][0]['geometry']['coordinates'], a, b, layer);
+                const new_pts = ans['routes'][0]['geometry']['coordinates'];
+                const new_points = [];
+                for (var i=0; i<new_pts.length; i++) {
+                    new_points.push(L.latLng(new_pts[i][1],new_pts[i][0]));
+                    new_points[i].meta = {"time":null, "ele":0};
+                    new_points[i].routing = true;
+                }
+                trace.addRoute2(new_points, a, b, layer);
             }
         }
     }
 
-    addRoute2(new_pts, a, b, layer) {
-        const new_points = [];
-        for (var i=0; i<new_pts.length; i++) {
-            new_points.push(L.latLng(new_pts[i][1],new_pts[i][0]));
-            new_points[i].meta = {"time":null, "ele":0};
-            new_points[i].routing = true;
-        }
-
+    addRoute2(new_points, a, b, layer) {
         const pts = layer._latlngs;
         // add new
         pts.splice(a.index+1, 0, ...new_points);

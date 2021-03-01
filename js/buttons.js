@@ -24,10 +24,15 @@ export default class Buttons {
         // SETTINGS
         this.km = true;
         this.cycling = true;
+        this.driving = false;
         this.routing = true;
         this.disable_trace = false;
         this.show_direction = false;
         this.show_distance = false;
+
+        this.terrain_cache = new Map();
+        this.tilebelt = require('/include/tilebelt/index.js');
+        this.PNGReader = require('/include/png/PNGReader.js');
 
         // EMBEDDING
         const queryString = window.location.search;
@@ -43,7 +48,7 @@ export default class Buttons {
         // MAIN MAP
         this.map = L.map('mapid', {
             zoomControl: false,
-            minZoom: 1
+            minZoom: 2
         }).setView([0, 0], 2);
         this.map.addEventListener("locationfound", function (e) {
             e.target.setView(e.latlng,12);
@@ -105,6 +110,7 @@ export default class Buttons {
         this.show_dist_markers = document.getElementById("show-dist-markers");
         this.bike = document.getElementById("bike");
         this.run = document.getElementById("run");
+        this.drive = document.getElementById("drive");
         this.kms = document.getElementById("km");
         this.mi = document.getElementById("mi");
         this.route = document.getElementById("route");
@@ -120,6 +126,7 @@ export default class Buttons {
         this.merge_as_segments = document.getElementById("merge-as-segments");
         this.merge_cancel = document.getElementById("merge-cancel");
         this.buttons_bar = document.getElementById('buttons-bar');
+        this.tabs = document.getElementById('sortable');
 
         // DISPLAYS
         this.distance = document.getElementById("distance-val");
@@ -168,14 +175,6 @@ export default class Buttons {
         }).addTo(this.map);
 
         var _this = this;
-        var xhr2 = new XMLHttpRequest();
-        xhr2.onreadystatechange = function() {
-            if (xhr2.readyState == 4 && xhr2.status == 200) {
-                _this.airmap_token = xhr2.responseText;
-            }
-        }
-        xhr2.open('GET', './airmap_token.txt');
-        xhr2.send();
 
         // ELEVATION PROFILE
         this.elev = L.control.elevation({
@@ -214,7 +213,7 @@ export default class Buttons {
             this.toolbar.addTo(this.map);
 
             this.embed_content.addEventListener('click', function () {
-                window.open('https://gpxstudio.github.io/?state='+urlParams.get('state'));
+                window.open(queryString.replace('&embed',''));
             });
         } else {
             this.toolbar = L.control({position: 'topleft'});
@@ -252,6 +251,8 @@ export default class Buttons {
         };
         this.trace_info.addTo(this.map);
         this.trace_info_grid.appendChild(this.elevation_profile);
+
+        this.tabs.style.width = this.trace_info_grid.getBoundingClientRect().width+'px';
 
         this.slider = new Slider(this);
         this.google = new Google(this);
@@ -332,24 +333,35 @@ export default class Buttons {
                     _this.mapboxSatellite = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
                         attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
                         maxZoom: 20,
-                        id: 'mapbox/satellite-v9',
+                        id: 'mapbox/satellite-streets-v11',
                         tileSize: 512,
                         zoomOffset: -1,
                         accessToken: _this.mapbox_token,
     	                crossOrigin: true
                     });
 
-                    _this.openCycleMap = L.tileLayer('https://{s}.tile.thunderforest.com/cycle/{z}/{x}/{y}.png?apikey={apikey}', {
-                        attribution: '&copy; <a href="http://www.thunderforest.com/" target="_blank">Thunderforest</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
-                        apikey: '67774cfadfeb42d2ac42bc38fda667c0',
+                    _this.cyclOSM = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
                         maxZoom: 20,
-    	                crossOrigin: true
+                        attribution: '&copy; <a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases" title="CyclOSM - Open Bicycle render">CyclOSM</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
                     });
 
                     _this.openHikingMap = L.tileLayer('https://maps.refuges.info/hiking/{z}/{x}/{y}.png', {
                         maxZoom: 20,
                         maxNativeZoom: 18,
                         attribution: '&copy; <a href="https://wiki.openstreetmap.org/wiki/Hiking/mri" target="_blank">sly</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+                    });
+
+                    _this.openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                        maxZoom: 20,
+                        maxNativeZoom: 17,
+                        attribution: '&copy; <a href="https://www.opentopomap.org" target="_blank">OpenTopoMap</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+                    });
+
+                    _this.ignMap = L.tileLayer('https://wxs.ign.fr/j5d7l46t2yri7bbc67krgo2b/geoportail/wmts?service=WMTS&request=GetTile&version=1.0.0&tilematrixset=PM&tilematrix={z}&tilecol={x}&tilerow={y}&layer=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&format=image/png&style=normal', {
+                        minZoom : 0,
+                        maxZoom : 18,
+                        tileSize : 256,
+                        attribution : "IGN-F/Géoportail"
                     });
 
                     _this.stravaHeatmap = L.tileLayer('https://heatmap-external-{s}.strava.com/tiles-auth/cycling/bluered/{z}/{x}/{y}.png', {
@@ -359,20 +371,28 @@ export default class Buttons {
                     });
 
                     _this.controlLayers = L.control.layers({
-                        "OpenStreetMap" : _this.openStreetMap,
-                        "OpenCycleMap" : _this.openCycleMap,
-                        "OpenHikingMap" : _this.openHikingMap,
                         "Mapbox Outdoors" : _this.mapboxOutdoors,
-                        "Mapbox Satellite" : _this.mapboxSatellite
+                        "Mapbox Satellite" : _this.mapboxSatellite,
+                        "OpenStreetMap" : _this.openStreetMap,
+                        "OpenTopoMap" : _this.openTopoMap,
+                        "OpenHikingMap" : _this.openHikingMap,
+                        "IGN (FR)" : _this.ignMap,
+                        "CyclOSM" : _this.cyclOSM
                     },{
                         "Strava Heatmap" : _this.stravaHeatmap
                     }).addTo(_this.map);
 
+                    _this.stravaHeatmap.on('tileload', function (e) {
+                        _this.stravaHeatmap.is_loading = true;
+                    });
+
                     _this.stravaHeatmap.on('tileerror', function (e) {
-                        _this.stravaHeatmap.remove();
-                        if (_this.window_open) _this.window_open.hide();
-                        _this.window_open = _this.strava_window;
-                        _this.strava_window.show();
+                        if (!_this.stravaHeatmap.is_loading) {
+                            _this.stravaHeatmap.remove();
+                            if (_this.window_open) _this.window_open.hide();
+                            _this.window_open = _this.strava_window;
+                            _this.strava_window.show();
+                        }
                     });
 
                     const toggle = document.getElementsByClassName('leaflet-control-layers-toggle')[0];
@@ -389,18 +409,19 @@ export default class Buttons {
                     const settings_list = document.createElement('ul');
                     settings_list.style = 'padding-inline-start: 20px;';
 
-                    settings_list.appendChild(_this.units);
-                    settings_list.appendChild(_this.activity);
                     settings_list.appendChild(_this.method);
+                    settings_list.appendChild(_this.activity);
+                    settings_list.appendChild(_this.units);
                     settings_list.appendChild(_this.chevrons);
                     settings_list.appendChild(_this.dist_markers);
 
                     settings_container.appendChild(settings_list);
                 }
                 _this.total = new Total(_this);
+                _this.openURLs();
             }
         }
-        xhr.open('GET', './mapbox_token.txt');
+        xhr.open('GET', './res/mapbox_token.txt');
         xhr.send();
     }
 
@@ -562,15 +583,37 @@ export default class Buttons {
         const buttons = this;
         const map = this.map;
 
-        $( ".sortable" ).on( "sortupdate", function( event, ui ) {
-            const order = total.buttons.tabs.childNodes;
-            const offset = 3;
+        this.sortable = Sortable.create(this.tabs, {
+            draggable: ".tab-draggable",
+            setData: function (dataTransfer, dragEl) {
+                const avgData = dragEl.trace.getAverageAdditionalData();
+                const data = total.outputGPX(false, true, avgData.hr, avgData.atemp, avgData.cad, dragEl.trace.index);
 
-            for (var i=offset; i<order.length; i++)
-                total.swapTraces(i-offset, order[i].trace.index);
+                dataTransfer.setData('DownloadURL', 'application/gpx+xml:'+data[0].name+':data:text/plain;charset=utf-8,'+encodeURIComponent(data[0].text));
+                dataTransfer.dropEffect = 'copy';
+                dataTransfer.effectAllowed = 'copy';
+            },
+            onEnd: function (e) {
+                const order = total.buttons.tabs.childNodes;
+                const offset = 3;
 
-            if (total.hasFocus) total.update();
+                for (var i=offset; i<order.length; i++)
+                    total.swapTraces(i-offset, order[i].trace.index);
+
+                if (total.hasFocus) total.update();
+            }
         });
+        this.tabs.addEventListener('wheel', function(e) {
+            if(e.type != 'wheel') {
+                return;
+            }
+            let delta = ((e.deltaY || -e.wheelDelta || e.detail) >> 10) || 1;
+            delta = delta * (-100);
+            buttons.tabs.scrollLeft -= delta;
+            e.preventDefault();
+        });
+        L.DomEvent.on(this.tabs,"mousewheel",L.DomEvent.stopPropagation);
+        L.DomEvent.on(this.tabs,"MozMousePixelScroll",L.DomEvent.stopPropagation);
         this.draw.addEventListener("click", function () {
             const newTrace = total.addTrace(undefined, "new.gpx");
             newTrace.draw();
@@ -748,7 +791,11 @@ export default class Buttons {
             buttons.crop_window.show();
         });
         this.crop_ok.addEventListener("click", function () {
-            total.traces[total.focusOn].crop(total.buttons.slider.getIndexStart(), total.buttons.slider.getIndexEnd(), !buttons.crop_keep.checked);
+            if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            const start = Math.max(0, total.buttons.slider.getIndexStart()-1);
+            const end = Math.min(trace.getPoints().length-1, total.buttons.slider.getIndexEnd()+1);
+            total.traces[total.focusOn].crop(start, end, !buttons.crop_keep.checked);
             buttons.crop_window.hide();
             gtag('event', 'button', {'event_category' : 'crop'});
         });
@@ -772,13 +819,21 @@ export default class Buttons {
         });
         buttons.bike.classList.add("selected");
         this.activity.addEventListener("click", function () {
-            buttons.cycling = !buttons.cycling;
             if (buttons.cycling) {
-                buttons.bike.classList.add("selected");
-                buttons.run.classList.remove("selected");
+                if (buttons.driving) buttons.driving = false;
+                else buttons.cycling = false;
+            } else {
+                buttons.cycling = true;
+                buttons.driving = true;
+            }
+            buttons.bike.classList.remove("selected");
+            buttons.run.classList.remove("selected");
+            buttons.drive.classList.remove("selected");
+            if (buttons.cycling) {
+                if (buttons.driving) buttons.drive.classList.add("selected");
+                else buttons.bike.classList.add("selected");
                 buttons.stravaHeatmap.setUrl('https://heatmap-external-{s}.strava.com/tiles-auth/cycling/bluered/{z}/{x}/{y}.png');
             } else {
-                buttons.bike.classList.remove("selected");
                 buttons.run.classList.add("selected");
                 buttons.stravaHeatmap.setUrl('https://heatmap-external-{s}.strava.com/tiles-auth/running/bluered/{z}/{x}/{y}.png');
             }
@@ -812,15 +867,39 @@ export default class Buttons {
                 gtag('event', 'button', {'event_category' : 'edit-trace'});
             } else trace.draw();
         });
-        document.addEventListener("keydown", ({key}) => {
-            if (key === "Escape") {
-                if (buttons.window_open) {
-                    buttons.window_open.hide();
-                    return;
-                }
+        document.addEventListener("keydown", function (e) {
+            if (e.key === "Escape") {
+                if (buttons.window_open) buttons.window_open.hide();
                 if (total.hasFocus) return;
                 var trace = total.traces[total.focusOn];
                 if (trace.isEdited) buttons.edit.click();
+            } else if (e.key === "F1") {
+                if (map.hasLayer(buttons.stravaHeatmap)) buttons.stravaHeatmap.remove();
+                else buttons.stravaHeatmap.addTo(map);
+            } else if (e.key === "F2") {
+                buttons.method.click();
+            } else if (e.key === "F3") {
+                buttons.activity.click();
+            } else if (e.key === "F4") {
+                buttons.units.click();
+            } else if (e.key == "z" && (e.ctrlKey || e.metaKey)) {
+                buttons.undo.click();
+                e.preventDefault();
+            } else if (e.key == "y" && (e.ctrlKey || e.metaKey)) {
+                buttons.redo.click();
+                e.preventDefault();
+            } else if (e.key == "s" && (e.ctrlKey || e.metaKey)) {
+                buttons.export.click();
+                e.preventDefault();
+            } else if (e.key == "k" && (e.ctrlKey || e.metaKey)) {
+                buttons.clear.click();
+                e.preventDefault();
+            } else if (e.key == "o" && (e.ctrlKey || e.metaKey)) {
+                buttons.load.click();
+                e.preventDefault();
+            } else if (e.key == "d" && (e.ctrlKey || e.metaKey)) {
+                buttons.draw.click();
+                e.preventDefault();
             }
         });
         this.reverse.addEventListener("click", function() {
@@ -874,7 +953,10 @@ export default class Buttons {
                     trace.refreshEditMarkers();
                     map._container.style.cursor = 'crosshair';
                 } else {
-                    if (marker._latlng != marker._latlng_origin) trace.askElevation([marker._latlng], true);
+                    if (marker._latlng != marker._latlng_origin) {
+                        marker._latlng.meta = {'ele': 0};
+                        trace.askElevation([marker._latlng], true);
+                    }
                     if (trace.isEdited) map._container.style.cursor = 'crosshair';
                     else map._container.style.cursor = '';
                 }
@@ -1078,41 +1160,11 @@ export default class Buttons {
         this.map.fitBounds(this.total.getBounds());
     }
 
-    updateTabWidth() {
-        const offset = 3;
-        const remaining_width = Math.floor(this.trace_info_grid.offsetWidth) - Math.ceil(this.total_tab.offsetWidth) - 1;
-        var tabs_width = 0;
-        for (var i=offset; i<this.tabs.childNodes.length; i++) {
-            this.tabs.childNodes[i].style.width = 'auto';
-            tabs_width += this.tabs.childNodes[i].offsetWidth;
-        }
-        if (tabs_width > remaining_width) {
-            const avg_tab_width = remaining_width / (this.tabs.childNodes.length - offset);
-            var cnt = 0;
-            var to_divide = remaining_width;
-            for (var i=offset; i<this.tabs.childNodes.length; i++) {
-                if (this.tabs.childNodes[i].offsetWidth >= avg_tab_width) cnt++;
-                else to_divide -= this.tabs.childNodes[i].offsetWidth;
-            }
-            const padding = 2 * parseFloat(window.getComputedStyle(this.total_tab, null).getPropertyValue('padding-left'));
-            const new_tab_width = Math.floor(to_divide / cnt - padding);
-            var first = true;
-            for (var i=offset; i<this.tabs.childNodes.length; i++) {
-                if (this.tabs.childNodes[i].offsetWidth >= avg_tab_width) {
-                    if (first) {
-                        first = false;
-                        this.tabs.childNodes[i].style.width = (to_divide - (cnt - 1) * (new_tab_width + padding) - padding - 1) + 'px';
-                    } else this.tabs.childNodes[i].style.width = new_tab_width + 'px';
-                }
-            }
-        }
-    }
-
     loadFiles(files) {
         var total = this.total;
         for (var i = 0; i < files.length; i++) {
             var file = files[i];
-            if (file.name.split('.').pop() != 'gpx') continue;
+            if (file.name.split('.').pop().toLowerCase() != 'gpx') continue;
             var reader = new FileReader();
             reader.onload = (function(f, name) {
                 return function(e) {
@@ -1125,8 +1177,32 @@ export default class Buttons {
         gtag('event', 'button', {'event_category' : 'load'});
     }
 
+    openURLs() {
+        const _this = this;
+        const queryString = window.location.search;
+        const urlParams = new URLSearchParams(queryString);
+        if (!urlParams.has('state')) return;
+        const params = JSON.parse(urlParams.get('state'));
+        if (!params.urls) return;
+        for (var i=0; i<params.urls.length; i++) {
+            const href = decodeURIComponent(params.urls[i]);
+            if (href) {
+                const xhr = new XMLHttpRequest();
+                xhr.onreadystatechange = function() {
+                    if (xhr.readyState == 4 && xhr.status == 200) {
+                        const path = href.split('/');
+                        const name = path.length ? path[path.length-1] : href;
+                        _this.total.addTrace(xhr.responseText, name);
+                    }
+                }
+                xhr.open('GET', href);
+                xhr.send();
+            }
+        }
+    }
+
     donation() {
-        window.open('https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=TCK9RME3XUV9N&source=url');
+        window.open('https://ko-fi.com/gpxstudio');
         gtag('event', 'button', {'event_category' : 'donate'});
     }
 

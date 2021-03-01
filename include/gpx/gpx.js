@@ -48,7 +48,7 @@ const icons = [
 	["Animal Tracks",{prefix: "fas", glyph: "paw"}],
 	["Asian Food",{prefix: "fas", glyph: "utensils"}],
 	["Bait and Tackle",{prefix: "", glyph: ""}],
-	["Ball Park",{prefix: "far", glyph: "futbol"}],
+	["Ball Park",{prefix: "fas", glyph: "futbol"}],
 	["Bank",{prefix: "fas", glyph: "dollar-sign"}],
 	["Bar",{prefix: "fas", glyph: "beer"}],
 	["Beach",{prefix: "fas", glyph: "umbrella-beach"}],
@@ -122,7 +122,7 @@ const icons = [
 	["Diamond, Green",{prefix: "fas", glyph: "gem"}],
 	["Diamond, Red",{prefix: "fas", glyph: "gem"}],
 	["Diver Down Flag 1",{prefix: "fas", glyph: "flag"}],
-	["Diver Down Flag 2",{prefix: "far", glyph: "flag"}],
+	["Diver Down Flag 2",{prefix: "fas", glyph: "flag"}],
 	["Dock",{prefix: "fas", glyph: "anchor"}],
 	["Dot, White",{prefix: "fas", glyph: "circle"}],
 	["Drinking Water",{prefix: "fas", glyph: "faucet"}],
@@ -673,7 +673,9 @@ L.GPX = L.FeatureGroup.extend({
         var ele = -1;
         if (eleEl.length > 0) {
           ele = parseFloat(eleEl[0].textContent);
+          if (Number.isNaN(ele)) ele = -1;
         }
+        ll.meta = {'ele': ele};
 
         var nameEl = el[i].getElementsByTagName('name');
         var name = '';
@@ -699,7 +701,7 @@ L.GPX = L.FeatureGroup.extend({
           sym = symEl[0].textContent;
         }
 
-        var marker = this._get_marker(ll, ele, sym, name, desc, cmt, options);
+        var marker = this._get_marker(ll, sym, name, desc, cmt, options);
         this.fire('addpoint', { point: marker, point_type: 'waypoint', element: el[i] });
         layers.push(marker);
       }
@@ -709,12 +711,15 @@ L.GPX = L.FeatureGroup.extend({
     return new L.FeatureGroup(layers);
   },
 
-  _get_marker: function(ll, ele, sym, name, desc, cmt, options) {
+  _get_marker: function(ll, sym, name, desc, cmt, options) {
       const trace = this._trace;
       const map = trace.map;
 
       var icon = iconMap.get(sym);
-      if (!icon) icon = {prefix: '', glyph: ''};
+      if (!icon) {
+          icon = {prefix: '', glyph: ''};
+          sym = " ";
+      }
       var marker = new L.Marker(ll, {
         clickable: options.marker_options.clickable,
         draggable: !trace.buttons.embedding,
@@ -723,10 +728,9 @@ L.GPX = L.FeatureGroup.extend({
         icon: L.icon.glyph(icon)
       });
 
-      marker.ele = ele;
-      marker.name = name;
-      marker.desc = desc;
-      marker.cmt = cmt;
+      marker.name = filterXSS(name);
+      marker.desc = filterXSS(desc);
+      marker.cmt = filterXSS(cmt);
       marker.sym = sym;
 
       marker.on({
@@ -762,22 +766,27 @@ L.GPX = L.FeatureGroup.extend({
                       closeButton: false
                   });
                   marker.bindPopup(popup).openPopup();
-                  popup.setContent(`<div>
-                                        <div style="`+(trace.buttons.embedding ? `min-width: 30px; width: auto; max-` : '')+`width: 188px; display: inline-block; overflow-wrap: break-word;"><b>`+(marker.name.length > 0 ? marker.name : 'empty title')+`</b></div>`+(trace.buttons.embedding ? '' : (` <i id="edit`+popup._leaflet_id+`" class="fas fa-pencil-alt custom-button" style="display: inline-block" title="Edit info"></i> <i id="clone`+popup._leaflet_id+`" class="far fa-copy custom-button" style="display: inline-block" title="Duplicate"></i> <i id="delete`+popup._leaflet_id+`" class="fas fa-trash-alt custom-button" style="display: inline-block" title="Delete"></i>`))+`<br>
-                                        <div>`+(marker.cmt.length > 0 ? (marker.cmt + '<br>') : '')+`<i>`+marker.desc+`</i></div>
+                  popup.setContent(`<div style="width: 200px; display: inline-block; overflow-wrap: break-word;">
+                                        `+(trace.buttons.embedding ? '' : (`<div style="float: right;"><i id="edit`+popup._leaflet_id+`" class="fas fa-pencil-alt custom-button" style="display: inline-block" title="Edit info"></i> <i id="clone`+popup._leaflet_id+`" class="fas fa-copy custom-button" style="display: inline-block" title="Duplicate"></i> <i id="delete`+popup._leaflet_id+`" class="fas fa-trash-alt custom-button" style="display: inline-block" title="Delete"></i></div>`))+`
+                                        <div class="wpt-cmt"><b>`+(marker.name.length > 0 ? marker.name : 'empty title')+`</b></div>
+                                        <div class="wpt-cmt">`+(marker.cmt.length > 0 ? (marker.cmt + '<br>') : '')+`<i class="wpt-cmt">`+marker.desc+`</i></div>
                                     </div>`);
                   if (!trace.buttons.embedding) {
                       const edit = document.getElementById('edit' + popup._leaflet_id);
                       edit.addEventListener('click', function () {
-                          popup.setContent(`<label for="name`+popup._leaflet_id+`">Name</label><br>
-                                         <input type="text" id="name`+popup._leaflet_id+`" name="name`+popup._leaflet_id+`" class="waypoint-input"><br>
-                                         <label for="cmt`+popup._leaflet_id+`">Comment (for GPS devices)</label><br>
-                                         <input type="text" id="cmt`+popup._leaflet_id+`" name="cmt`+popup._leaflet_id+`" class="waypoint-input"><br>
-                                         <label for="desc`+popup._leaflet_id+`">Description (for users)</label><br>
-                                         <input type="text" id="desc`+popup._leaflet_id+`" name="desc`+popup._leaflet_id+`" class="waypoint-input"><br>
+                          popup.setContent(`<div style="width: 300px; display: inline-block; overflow-wrap: break-word;">
+                                         <div>Name</div>
+                                         <div id="name`+popup._leaflet_id+`" contenteditable class="wpt-input"></div>
+                                         <div>Comment (for GPS devices)</div>
+                                         <div id="cmt`+popup._leaflet_id+`" contenteditable class="wpt-input"></div>
+                                         <div>Description (for users)</div>
+                                         <div id="desc`+popup._leaflet_id+`" contenteditable class="wpt-input"></div>
                                          <label for="sym`+popup._leaflet_id+`">Symbol</label><br>
-                                         <select type="text" id="sym`+popup._leaflet_id+`" name="sym`+popup._leaflet_id+`" class="waypoint-input"></select><br>
-                                         <table class="waypoint-input"><colgroup><col span="1" style="width: 30%;"><col span="1" style="width: 20%;"><col span="1" style="width: 20%;"><col span="1" style="width: 30%;"></colgroup><tbody><tr><td></td><td><div id="change`+popup._leaflet_id+`" class="panels custom-button normal-button">Ok</div></td><td><div id="cancel`+popup._leaflet_id+`" class="panels custom-button normal-button"><b>Cancel</b></div></td><td></td></tr></tbody></table>`);
+                                         <select type="text" id="sym`+popup._leaflet_id+`" name="sym`+popup._leaflet_id+`" style="width: 100%"></select><br>
+                                         <div style="text-align: center">
+                                            <div id="change`+popup._leaflet_id+`" class="panels custom-button normal-button">Ok</div>
+                                            <div id="cancel`+popup._leaflet_id+`" class="panels custom-button normal-button"><b>Cancel</b></div>
+                                         </div></div>`);
                           const name = document.getElementById('name'+popup._leaflet_id);
                           const cmt = document.getElementById('cmt'+popup._leaflet_id);
                           const desc = document.getElementById('desc'+popup._leaflet_id);
@@ -792,17 +801,18 @@ L.GPX = L.FeatureGroup.extend({
                               select.appendChild(opt);
                           }
 
-                          name.value = marker.name;
-                          cmt.value = marker.cmt;
-                          desc.value = marker.desc;
-                          select.value = marker.sym.length > 0 ? marker.sym : " ";
+                          name.innerHTML = trace.total.encodeString(marker.name);
+                          cmt.innerHTML = trace.total.encodeString(marker.cmt);
+                          desc.innerHTML = trace.total.encodeString(marker.desc);
+                          select.value = iconMap.get(marker.sym) ? marker.sym : " ";
 
                           change.addEventListener('click', function () {
-                              marker.name = name.value;
-                              marker.cmt = cmt.value;
-                              marker.desc = desc.value;
+                              marker.name = filterXSS(name.innerText);
+                              marker.cmt = filterXSS(cmt.innerText);
+                              marker.desc = filterXSS(desc.innerText);
                               marker.sym = select.value;
                               marker.setIcon(L.icon.glyph(iconMap.get(marker.sym)));
+                              marker._icon.title = filterXSS(name.innerText);
 
                               marker.closePopup();
                               marker.fire('click');
@@ -833,6 +843,9 @@ L.GPX = L.FeatureGroup.extend({
               }
           }
       });
+
+      L.DomEvent.on(marker,"click",L.DomEvent.stopPropagation);
+      L.DomEvent.on(marker,"dblclick",L.DomEvent.stopPropagation);
 
       return marker;
   },
