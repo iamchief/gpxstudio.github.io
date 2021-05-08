@@ -35,9 +35,9 @@ export default class Total {
 
     /*** LOGIC ***/
 
-    addTrace(file, name) {
+    addTrace(file, name, callback) {
         if (this.traces.length == 1) this.buttons.combine.classList.remove('unselected','no-click');
-        return new Trace(file, name, this.buttons.map, this);
+        return new Trace(file, name, this.buttons.map, this, callback);
     }
 
     removeTrace(index) {
@@ -79,8 +79,9 @@ export default class Total {
         this.buttons.focusTabElement(this.tab);
         this.buttons.hideTraceButtons();
         this.buttons.elev._removeSliderCircles();
+        this.buttons.unhideToHide();
 
-        for (var i=0; i<this.traces.length; i++) {
+        for (var i=0; i<this.traces.length; i++) if (this.traces[i].visible) {
             this.traces[i].showWaypoints();
         }
     }
@@ -113,11 +114,13 @@ export default class Total {
     }
 
     showData() {
-        this.buttons.distance.innerHTML = (this.getDistance() / 1000).toFixed(1).toString() + (this.buttons.km ? ' km' : ' mi');
-        this.buttons.elevation.innerHTML = this.getElevation().toFixed(0).toString() + (this.buttons.km ? ' m' : ' ft');
-        if (this.buttons.cycling) this.buttons.speed.innerHTML = this.getMovingSpeed().toFixed(1).toString() + ' ' + (this.buttons.km ? ' km' : ' mi') + '/h';
-        else this.buttons.speed.innerHTML = this.msToTimeMin(this.getMovingPace()) + ' min/' + (this.buttons.km ? 'km' : 'mi');
+        this.buttons.distance.innerHTML = (this.getDistance() / 1000).toFixed(1).toString() + ' ' + (this.buttons.km ? this.buttons.unit_kilometers_text : this.buttons.unit_miles_text);
+        this.buttons.elevation.innerHTML = this.getElevation().toFixed(0).toString() + ' ' + (this.buttons.km ? this.buttons.unit_meters_text : this.buttons.unit_feet_text);
+        if (this.buttons.cycling) this.buttons.speed.innerHTML = this.getMovingSpeed().toFixed(1).toString() + ' ' + (this.buttons.km ? this.buttons.unit_kilometers_text : this.buttons.unit_miles_text) + '/' + this.buttons.unit_hours_text;
+        else this.buttons.speed.innerHTML = this.msToTimeMin(this.getMovingPace()) + ' ' + this.buttons.unit_minutes_text + '/' + (this.buttons.km ? this.buttons.unit_kilometers_text : this.buttons.unit_miles_text);
         this.buttons.duration.innerHTML = this.msToTime(this.getMovingTime());
+        this.buttons.points.innerHTML = this.getPoints();
+        this.buttons.segments.innerHTML = this.getSegments();
     }
 
     showElevation() {
@@ -142,6 +145,20 @@ export default class Total {
 
     /*** GPX DATA ***/
 
+    getPoints() {
+        var tot = 0;
+        for (var i=0; i<this.traces.length; i++)
+            tot += this.traces[i].getPoints().length;
+        return tot;
+    }
+
+    getSegments() {
+        var tot = 0;
+        for (var i=0; i<this.traces.length; i++)
+            tot += this.traces[i].getSegments().length;
+        return tot;
+    }
+
     getDistance() {
         var tot = 0;
         for (var i=0; i<this.traces.length; i++)
@@ -151,7 +168,7 @@ export default class Total {
 
     getMovingDistance(noConversion) {
         var tot = 0;
-        for (var i=0; i<this.traces.length; i++)
+        for (var i=0; i<this.traces.length; i++) if (this.traces[i].firstTimeData() != -1)
             tot += this.traces[i].getMovingDistance(noConversion);
         return tot;
     }
@@ -186,6 +203,7 @@ export default class Total {
         var cntHr = 0, totHr = 0;
         var cntTemp = 0, totTemp = 0;
         var cntCad = 0, totCad = 0;
+        var cntPower = 0, totPower = 0;
 
         for (var i=0; i<this.traces.length; i++) {
             const data = this.traces[i].getAverageAdditionalData();
@@ -202,20 +220,25 @@ export default class Total {
                 totCad += data.cad * duration;
                 cntCad += duration;
             }
+            if (data.power) {
+                totPower += data.power * duration;
+                cntPower += duration;
+            }
         }
 
         this.additionalAvgData = {
             hr: cntHr > 0 ? Math.round((totHr/cntHr) * 10) / 10 : null,
             atemp: cntTemp > 0 ? Math.round((totTemp/cntTemp) * 10) / 10 : null,
             cad: cntCad > 0 ? Math.round((totCad/cntCad) * 10) / 10 : null,
+            power: cntPower > 0 ? Math.round(totPower/cntPower) : null
         };
         return this.additionalAvgData;
     }
 
     /*** OUTPUT ***/
 
-    outputGPX(mergeAll, incl_time, incl_hr, incl_atemp, incl_cad, trace_idx) {
-        if (incl_time && this.getMovingTime() > 0 && trace_idx === null) { // at least one track has time data
+    outputGPX(mergeAll, incl_time, incl_hr, incl_atemp, incl_cad, incl_power, trace_idx) {
+        if (incl_time && this.getMovingTime() > 0 && trace_idx === undefined) { // at least one track has time data
             for (var i=0; i<this.traces.length; i++) this.traces[i].timeConsistency();
             const avg = this.getMovingSpeed(true);
             var lastPoints = null;
@@ -283,12 +306,13 @@ export default class Total {
             const hr = data.hr ? data.hr : (totalData ? totalData.hr : null);
             const atemp = data.atemp ? data.atemp : (totalData ? totalData.atemp : null);
             const cad = data.cad ? data.cad : (totalData ? totalData.cad : null);
+            const power = data.power ? data.power : (totalData ? totalData.power : null);
 
-            const layers = this.traces[i].getLayers();
-            for (var l=0; l<layers.length; l++) if (layers[l]._latlngs) {
+            const segments = this.traces[i].getSegments();
+            for (var l=0; l<segments.length; l++) {
                 xmlOutput += `<trkseg>
     `;
-                const points = layers[l]._latlngs;
+                const points = segments[l]._latlngs;
                 for (var j=0; j<points.length; j++) {
                     const point = points[j];
                     xmlOutput += `<trkpt lat="${point.lat.toFixed(6)}" lon="${point.lng.toFixed(6)}">
@@ -333,7 +357,17 @@ export default class Total {
                             }
                         }
                         xmlOutput += `    </gpxtpx:TrackPointExtension>
-        </extensions>
+    `;
+                        if (incl_power) {
+                            if (point.meta.power) {
+                                xmlOutput += `    <power>${point.meta.power}</power>
+    `;
+                            } else if (power) {
+                                xmlOutput += `    <power>${power}</power>
+    `;
+                            }
+                        }
+                        xmlOutput += `</extensions>
     `;
                     }
                     xmlOutput += `</trkpt>
@@ -344,7 +378,7 @@ export default class Total {
     `;
             }
 
-            const waypoints = this.traces[i].waypoints;
+            const waypoints = this.traces[i].getWaypoints();
             for (var j=0; j<waypoints.length; j++) {
                 const point = waypoints[j];
                 waypointsOutput += `<wpt lat="${point._latlng.lat.toFixed(6)}" lon="${point._latlng.lng.toFixed(6)}">
@@ -363,9 +397,10 @@ export default class Total {
 `;
             }
 
-            if (!mergeAll || this.traces.length == 1) {
+            if (!mergeAll || this.traces.length == 1 || trace_idx!==undefined) {
                 const colorOutput = this.traces[i].set_color ? `<extensions>
     <color>`+this.traces[i].normal_style.color+`</color>
+    <opacity>`+this.traces[i].normal_style.opacity+`</opacity>
 </extensions>
 ` : '';
                 output.push({
@@ -428,9 +463,13 @@ export default class Total {
                 count: 0
             });
         }
+        this.normal_style = { weight: 3, opacity: 1 };
+        this.focus_style = { weight: 5, opacity: 1 };
+        this.same_color = false;
     }
 
     getColor() {
+        if (this.same_color) return this.normal_style.color;
         var lowest_count = Infinity;
         var lowest_index = 0;
         for (var i=0; i<this.colors.length; i++) if (this.colors[i].count < lowest_count) {

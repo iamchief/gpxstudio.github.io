@@ -77,6 +77,11 @@ export default class Buttons {
         this.zone_delete_cancel = document.getElementById("zone-delete-cancel");
         this.zone_delete_pts = document.getElementById("zone-delete-points");
         this.zone_delete_wpts = document.getElementById("zone-delete-waypoints");
+        this.zone_delete_inside = document.getElementById("zone-delete-inside");
+        this.zone_delete_inside.value = 'inside';
+        this.zone_delete_outside = document.getElementById("zone-delete-outside");
+        this.zone_delete_outside.value = 'outside';
+        this.hide = document.getElementById("hide");
         this.reverse = document.getElementById("reverse");
         this.extract = document.getElementById("extract");
         this.reduce = document.getElementById("reduce");
@@ -92,9 +97,13 @@ export default class Buttons {
         this.color_ok = document.getElementById("validate-color");
         this.color_cancel = document.getElementById("cancel-color");
         this.color_picker = document.getElementById("color-picker");
+        this.color_checkbox = document.getElementById("color-checkbox");
+        this.opacity_slider = document.getElementById("opacity-slider");
+        this.opacity_checkbox = document.getElementById("opacity-checkbox");
         this.edit = document.getElementById("edit");
         this.validate = document.getElementById("validate");
         this.unvalidate = document.getElementById("unvalidate");
+        this.crop_container = document.getElementById("crop-container");
         this.crop_ok = document.getElementById("crop-ok");
         this.crop_cancel = document.getElementById("crop-cancel");
         this.crop_keep = document.getElementById("crop-keep");
@@ -108,6 +117,8 @@ export default class Buttons {
         this.show_chevrons = document.getElementById("show-chevrons");
         this.dist_markers = document.getElementById("dist-markers");
         this.show_dist_markers = document.getElementById("show-dist-markers");
+        this.profile = document.getElementById("profile");
+        this.show_profile = document.getElementById("show-profile");
         this.bike = document.getElementById("bike");
         this.run = document.getElementById("run");
         this.drive = document.getElementById("drive");
@@ -120,6 +131,7 @@ export default class Buttons {
         this.include_hr = document.getElementById("include-hr");
         this.include_cad = document.getElementById("include-cad");
         this.include_atemp = document.getElementById("include-atemp");
+        this.include_power = document.getElementById("include-power");
         this.strava_ok = document.getElementById("strava-ok");
         this.copy_link = document.getElementById("copy-link");
         this.copy_embed = document.getElementById("copy-embed");
@@ -129,11 +141,24 @@ export default class Buttons {
         this.tabs = document.getElementById('sortable');
 
         // DISPLAYS
+        this.distance_info = document.getElementById("distance");
         this.distance = document.getElementById("distance-val");
+        this.elevation_info = document.getElementById("elevation");
         this.elevation = document.getElementById("elevation-val");
+        this.duration_info = document.getElementById("duration");
         this.duration = document.getElementById("duration-val");
+        this.speed_info = document.getElementById("speed");
         this.speed = document.getElementById("speed-val");
+        this.points_info = document.getElementById("points");
+        this.points = document.getElementById("points-val");
+        this.segments_info = document.getElementById("segments");
+        this.segments = document.getElementById("segments-val");
+        this.live_distance = document.getElementById("live-distance");
+        this.live_speed = document.getElementById("live-speed");
+        this.live_elevation = document.getElementById("live-elevation");
+        this.live_slope = document.getElementById("live-slope");
         this.trace_info_grid = document.getElementById('info-grid');
+        this.slide_container = document.getElementById('slide-container');
         this.start_slider = document.getElementById('start-point');
         this.end_slider = document.getElementById('end-point');
         this.total_tab = document.getElementById('total-tab');
@@ -156,6 +181,31 @@ export default class Buttons {
         this.trace_info_content = document.getElementById('info');
         this.toolbar_content = document.getElementById('toolbar');
 
+        // TRANSLATED TEXT
+        this.ok_button_text = document.getElementById('ok-button-text').textContent;
+        this.cancel_button_text = document.getElementById('cancel-button-text').textContent;
+        this.unit_kilometers_text = document.getElementById('unit-kilometers-text').textContent;
+        this.unit_miles_text = document.getElementById('unit-miles-text').textContent;
+        this.unit_meters_text = document.getElementById('unit-meters-text').textContent;
+        this.unit_feet_text = document.getElementById('unit-feet-text').textContent;
+        this.unit_hours_text = document.getElementById('unit-hours-text').textContent;
+        this.unit_minutes_text = document.getElementById('unit-minutes-text').textContent;
+        this.edit_info_text = document.getElementById('edit-info-text').textContent;
+        this.duplicate_text = document.getElementById('duplicate-text').textContent;
+        this.delete_text = document.getElementById('delete-text').textContent;
+        this.split_text = document.getElementById('split-text').textContent;
+        this.remove_pt_text = document.getElementById('remove-pt-text').textContent;
+        this.speed_text = document.getElementById('speed-text').textContent;
+        this.pace_text = document.getElementById('pace-text').textContent;
+        this.start_text = document.getElementById('start-text').textContent;
+        this.experimental_text = document.getElementById('experimental-text').textContent;
+        this.experimental_info_text = document.getElementById('experimental-info-text').textContent;
+        this.name_text = document.getElementById('name-text').textContent;
+        this.comment_text = document.getElementById('comment-text').textContent;
+        this.description_text = document.getElementById('description-text').textContent;
+        this.symbol_text = document.getElementById('symbol-text').textContent;
+        this.empty_title_text = document.getElementById('empty-title-text').textContent;
+
         // WINDOWS
         this.help_window = L.control.window(this.map,{title:'',content:this.help_text,className:'panels-container'});
         this.export_window = L.control.window(this.map,{title:'',content:this.export_content,className:'panels-container'});
@@ -177,10 +227,14 @@ export default class Buttons {
         var _this = this;
 
         // ELEVATION PROFILE
+        const mapWidth = this.map._container.offsetWidth;
+        var elevation_profile_width = Math.min((mapWidth - 270) * 2 / 3, 400);
+        var mobileEmbeddingStyle = this.embedding && elevation_profile_width < 200;
+        if (mobileEmbeddingStyle) elevation_profile_width = mapWidth * 4/5;
         this.elev = L.control.elevation({
             theme: "steelblue-theme",
             useHeightIndicator: true,
-            width: Math.max(100, Math.min((window.innerWidth - 270) * 2 / 3, 400)),
+            width: elevation_profile_width,
         	height: 100,
             margins:{
                 top:20,
@@ -191,6 +245,50 @@ export default class Buttons {
         }).addTo(this.map);
         this.elev.buttons = this;
         this.elevation_profile = document.getElementsByClassName('elevation')[0];
+        if (mobileEmbeddingStyle) {
+            this.live_distance.style.display = 'none';
+            this.live_speed.style.display = 'none';
+            this.live_elevation.style.display = 'none';
+            this.live_slope.style.display = 'none';
+
+            this.elevation_profile.style.gridColumn = '1 / span 4';
+            this.elevation_profile.style.gridRow = '1 / span 1';
+            this.distance.style.gridColumn = '1 / span 1';
+            this.distance.style.gridRow = '2 / span 1';
+            this.distance_info.style.gridColumn = '1 / span 1';
+            this.distance_info.style.gridRow = '3 / span 1';
+            this.elevation.style.gridColumn = '2 / span 1';
+            this.elevation.style.gridRow = '2 / span 1';
+            this.elevation_info.style.gridColumn = '2 / span 1';
+            this.elevation_info.style.gridRow = '3 / span 1';
+            this.speed.style.gridColumn = '3 / span 1';
+            this.speed.style.gridRow = '2 / span 1';
+            this.speed_info.style.gridColumn = '3 / span 1';
+            this.speed_info.style.gridRow = '3 / span 1';
+            this.duration.style.gridColumn = '4 / span 1';
+            this.duration.style.gridRow = '2 / span 1';
+            this.duration_info.style.gridColumn = '4 / span 1';
+            this.duration_info.style.gridRow = '3 / span 1';
+
+            if (elevation_profile_width < 360) {
+                this.distance.style.minWidth = 0;
+                this.elevation.style.minWidth = 0;
+                this.speed.style.minWidth = 0;
+                this.duration.style.minWidth = 0;
+            }
+
+            if (elevation_profile_width < 300) {
+                this.duration.style.display = 'none';
+                this.duration_info.style.display = 'none';
+                this.elevation_profile.style.gridColumn = '1 / span 3';
+            }
+
+            if (elevation_profile_width < 200) {
+                this.speed.style.display = 'none';
+                this.speed_info.style.display = 'none';
+                this.elevation_profile.style.gridColumn = '1 / span 2';
+            }
+        }
 
         // OVERLAY COMPONENTS
         if (this.embedding) {
@@ -202,7 +300,9 @@ export default class Buttons {
             this.method.style.display = 'none';
             this.chevrons.style.display = 'none';
             this.dist_markers.style.display = 'none';
-            this.trace_info_grid.style.height = '106px';
+            this.profile.style.display = 'none';
+            this.crop_container.style.display = 'none';
+            this.slide_container.style.display = 'none';
 
             this.toolbar = L.control({position: 'topleft'});
             this.toolbar.onAdd = function (map) {
@@ -213,7 +313,7 @@ export default class Buttons {
             this.toolbar.addTo(this.map);
 
             this.embed_content.addEventListener('click', function () {
-                window.open(queryString.replace('&embed',''));
+                window.open(queryString.replace('&embed','').replace('embed&','').replace('embed',''));
             });
         } else {
             this.toolbar = L.control({position: 'topleft'});
@@ -255,7 +355,6 @@ export default class Buttons {
         this.tabs.style.width = this.trace_info_grid.getBoundingClientRect().width+'px';
 
         this.slider = new Slider(this);
-        this.google = new Google(this);
 
         this.hideTraceButtons();
 
@@ -264,8 +363,11 @@ export default class Buttons {
         var xhr = new XMLHttpRequest();
         xhr.onreadystatechange = function() {
             if (xhr.readyState == 4 && xhr.status == 200) {
-                _this.mapbox_token = xhr.responseText;
-                _this.mapbox_token = _this.mapbox_token.replace(/\s/g, '');
+                if (urlParams.has('token')) _this.mapbox_token = urlParams.get('token');
+                else {
+                    _this.mapbox_token = xhr.responseText;
+                    _this.mapbox_token = _this.mapbox_token.replace(/\s/g, '');
+                }
 
                 // TILES
 
@@ -275,31 +377,33 @@ export default class Buttons {
                     maxNativeZoom: 19
                 });
 
+                _this.cyclOSM = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
+                    maxZoom: 20,
+                    attribution: '&copy; <a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases" title="CyclOSM - Open Bicycle render">CyclOSM</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+                });
+
+                _this.openHikingMap = L.tileLayer('https://maps.refuges.info/hiking/{z}/{x}/{y}.png', {
+                    maxZoom: 20,
+                    maxNativeZoom: 18,
+                    attribution: '&copy; <a href="https://wiki.openstreetmap.org/wiki/Hiking/mri" target="_blank">sly</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+                });
+
+                _this.openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
+                    maxZoom: 20,
+                    maxNativeZoom: 17,
+                    attribution: '&copy; <a href="https://www.opentopomap.org" target="_blank">OpenTopoMap</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+                });
+
+                _this.ignMap = L.tileLayer('https://wxs.ign.fr/j5d7l46t2yri7bbc67krgo2b/geoportail/wmts?service=WMTS&request=GetTile&version=1.0.0&tilematrixset=PM&tilematrix={z}&tilecol={x}&tilerow={y}&layer=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&format=image/png&style=normal', {
+                    minZoom : 0,
+                    maxZoom : 18,
+                    tileSize : 256,
+                    attribution : "IGN-F/Géoportail"
+                });
+
                 if (_this.embedding) {
-                    _this.openStreetMap.addTo(_this.map);
-                } else {
-                    L.Control.geocoder({
-                        geocoder: new L.Control.Geocoder.Mapbox(_this.mapbox_token),
-                        defaultMarkGeocode: false
-                    }).on('markgeocode', function(e) {
-                        var bbox = e.geocode.bbox;
-                        _this.map.fitBounds(bbox);
-                      }).addTo(_this.map);
-
-                    _this.streetView = L.control({
-                        position: 'topright'
-                    });
-                    _this.streetView.onAdd = function (map) {
-                        var div = L.DomUtil.create('div', 'leaflet-control-layers leaflet-bar');
-                        div.innerHTML = '<i class="fas fa-street-view custom-button" style="padding: 6px; font-size: 14px;"></i>';
-                        L.DomEvent.disableClickPropagation(div);
-                        _this.googleStreetView = div;
-                        return div;
-                    };
-                    _this.streetView.addTo(_this.map);
-
-                    if (_this.supportsWebGL()) {
-                        _this.mapboxOutdoors = L.mapboxGL({
+                    if (urlParams.has('token') && _this.supportsWebGL()) {
+                        _this.mapboxMap = L.mapboxGL({
                             attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
                             maxZoom: 20,
                             accessToken: _this.mapbox_token,
@@ -313,56 +417,66 @@ export default class Buttons {
                             touchPitch: false,
                             doubleClickZoom: false,
                             scrollZoom: false,
-                            boxZoom: false,
-                            keyboard: false
-                        }).addTo(_this.map);
-                    } else {
-                        _this.openStreetMap.addTo(_this.map);
-
-                        _this.mapboxOutdoors = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-                            attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
-                            maxZoom: 20,
-                            id: 'mapbox/outdoors-v11',
-                            tileSize: 512,
-                            zoomOffset: -1,
-                            accessToken: _this.mapbox_token,
-        	                crossOrigin: true
+                            boxZoom: false
                         });
                     }
 
-                    _this.mapboxSatellite = L.tileLayer('https://api.mapbox.com/styles/v1/{id}/tiles/{z}/{x}/{y}?access_token={accessToken}', {
-                        attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
-                        maxZoom: 20,
-                        id: 'mapbox/satellite-streets-v11',
-                        tileSize: 512,
-                        zoomOffset: -1,
-                        accessToken: _this.mapbox_token,
-    	                crossOrigin: true
-                    });
+                    if (urlParams.has('source')) {
+                        const mapSource = urlParams.get('source');
+                        if (mapSource == 'osm') _this.openStreetMap.addTo(_this.map);
+                        else if (mapSource == 'otm') _this.openTopoMap.addTo(_this.map);
+                        else if (mapSource == 'ohm') _this.openHikingMap.addTo(_this.map);
+                        else if (mapSource == 'cosm') _this.cyclOSM.addTo(_this.map);
+                        else if (mapSource == 'ign') _this.ignMap.addTo(_this.map);
+                        else if (mapSource == 'outdoors' && urlParams.has('token') && _this.supportsWebGL()) _this.mapboxMap.addTo(_this.map);
+                        else if (mapSource == 'satellite' && urlParams.has('token') && _this.supportsWebGL()) {
+                            _this.mapboxMap.addTo(_this.map);
+                            _this.mapboxMap.options.style = "mapbox://styles/mapbox/satellite-v9";
+                            _this.mapboxMap.getMapboxMap().setStyle("mapbox://styles/mapbox/satellite-v9", {diff: false});
+                        } else _this.openStreetMap.addTo(_this.map);
+                    } else _this.openStreetMap.addTo(_this.map);
 
-                    _this.cyclOSM = L.tileLayer('https://{s}.tile-cyclosm.openstreetmap.fr/cyclosm/{z}/{x}/{y}.png', {
-                        maxZoom: 20,
-                        attribution: '&copy; <a href="https://github.com/cyclosm/cyclosm-cartocss-style/releases" title="CyclOSM - Open Bicycle render">CyclOSM</a> &copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-                    });
+                    if (urlParams.has('token') && _this.supportsWebGL()) {
+                        _this.controlLayers = L.control.layers({
+                            "Mapbox Outdoors" : _this.mapboxMap,
+                            "Mapbox Satellite" : _this.mapboxMap,
+                            "OpenStreetMap" : _this.openStreetMap,
+                            "OpenTopoMap" : _this.openTopoMap,
+                            "OpenHikingMap" : _this.openHikingMap,
+                            "CyclOSM" : _this.cyclOSM,
+                            "IGN (FR)" : _this.ignMap
+                        }).addTo(_this.map);
 
-                    _this.openHikingMap = L.tileLayer('https://maps.refuges.info/hiking/{z}/{x}/{y}.png', {
-                        maxZoom: 20,
-                        maxNativeZoom: 18,
-                        attribution: '&copy; <a href="https://wiki.openstreetmap.org/wiki/Hiking/mri" target="_blank">sly</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
-                    });
+                        _this.addSwitchMapboxLayers();
+                    } else {
+                        _this.controlLayers = L.control.layers({
+                            "OpenStreetMap" : _this.openStreetMap,
+                            "OpenTopoMap" : _this.openTopoMap,
+                            "OpenHikingMap" : _this.openHikingMap,
+                            "CyclOSM" : _this.cyclOSM,
+                            "IGN (FR)" : _this.ignMap
+                        }).addTo(_this.map);
+                    }
+                } else {
+                    L.Control.geocoder({
+                        geocoder: new L.Control.Geocoder.Mapbox(_this.mapbox_token),
+                        defaultMarkGeocode: false
+                    }).on('markgeocode', function(e) {
+                        var bbox = e.geocode.bbox;
+                        _this.map.fitBounds(bbox);
+                    }).addTo(_this.map);
 
-                    _this.openTopoMap = L.tileLayer('https://{s}.tile.opentopomap.org/{z}/{x}/{y}.png', {
-                        maxZoom: 20,
-                        maxNativeZoom: 17,
-                        attribution: '&copy; <a href="https://www.opentopomap.org" target="_blank">OpenTopoMap</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>'
+                    _this.streetView = L.control({
+                        position: 'topright'
                     });
-
-                    _this.ignMap = L.tileLayer('https://wxs.ign.fr/j5d7l46t2yri7bbc67krgo2b/geoportail/wmts?service=WMTS&request=GetTile&version=1.0.0&tilematrixset=PM&tilematrix={z}&tilecol={x}&tilerow={y}&layer=GEOGRAPHICALGRIDSYSTEMS.PLANIGNV2&format=image/png&style=normal', {
-                        minZoom : 0,
-                        maxZoom : 18,
-                        tileSize : 256,
-                        attribution : "IGN-F/Géoportail"
-                    });
+                    _this.streetView.onAdd = function (map) {
+                        var div = L.DomUtil.create('div', 'leaflet-control-layers leaflet-bar');
+                        div.innerHTML = '<i class="fas fa-street-view custom-button" style="padding: 6px; font-size: 14px;"></i>';
+                        L.DomEvent.disableClickPropagation(div);
+                        _this.googleStreetView = div;
+                        return div;
+                    };
+                    _this.streetView.addTo(_this.map);
 
                     _this.stravaHeatmap = L.tileLayer('https://heatmap-external-{s}.strava.com/tiles-auth/cycling/bluered/{z}/{x}/{y}.png', {
                         maxZoom: 20,
@@ -370,17 +484,50 @@ export default class Buttons {
                         attribution: '&copy; <a href="https://www.strava.com" target="_blank">Strava</a>'
                     });
 
-                    _this.controlLayers = L.control.layers({
-                        "Mapbox Outdoors" : _this.mapboxOutdoors,
-                        "Mapbox Satellite" : _this.mapboxSatellite,
-                        "OpenStreetMap" : _this.openStreetMap,
-                        "OpenTopoMap" : _this.openTopoMap,
-                        "OpenHikingMap" : _this.openHikingMap,
-                        "IGN (FR)" : _this.ignMap,
-                        "CyclOSM" : _this.cyclOSM
-                    },{
-                        "Strava Heatmap" : _this.stravaHeatmap
-                    }).addTo(_this.map);
+                    if (_this.supportsWebGL()) {
+                        _this.mapboxMap = L.mapboxGL({
+                            attribution: '&copy; <a href="https://www.mapbox.com/about/maps/" target="_blank">Mapbox</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a>',
+                            maxZoom: 20,
+                            accessToken: _this.mapbox_token,
+                            style: 'mapbox://styles/mapbox/outdoors-v11',
+                            interactive: true,
+                            minZoom: 1,
+                            dragRotate: false,
+                            touchZoomRotate: false,
+                            boxZoom: false,
+                            dragPan: false,
+                            touchPitch: false,
+                            doubleClickZoom: false,
+                            scrollZoom: false,
+                            boxZoom: false
+                        }).addTo(_this.map);
+
+                        _this.controlLayers = L.control.layers({
+                            "Mapbox Outdoors" : _this.mapboxMap,
+                            "Mapbox Satellite" : _this.mapboxMap,
+                            "OpenStreetMap" : _this.openStreetMap,
+                            "OpenTopoMap" : _this.openTopoMap,
+                            "OpenHikingMap" : _this.openHikingMap,
+                            "CyclOSM" : _this.cyclOSM,
+                            "IGN (FR)" : _this.ignMap
+                        },{
+                            "Strava Heatmap" : _this.stravaHeatmap
+                        }).addTo(_this.map);
+
+                        _this.addSwitchMapboxLayers();
+                    } else {
+                        _this.openStreetMap.addTo(_this.map);
+
+                        _this.controlLayers = L.control.layers({
+                            "OpenStreetMap" : _this.openStreetMap,
+                            "OpenTopoMap" : _this.openTopoMap,
+                            "OpenHikingMap" : _this.openHikingMap,
+                            "CyclOSM" : _this.cyclOSM,
+                            "IGN (FR)" : _this.ignMap
+                        },{
+                            "Strava Heatmap" : _this.stravaHeatmap
+                        }).addTo(_this.map);
+                    }
 
                     _this.stravaHeatmap.on('tileload', function (e) {
                         _this.stravaHeatmap.is_loading = true;
@@ -394,11 +541,13 @@ export default class Buttons {
                             _this.strava_window.show();
                         }
                     });
+                }
 
-                    const toggle = document.getElementsByClassName('leaflet-control-layers-toggle')[0];
-                    toggle.removeAttribute("href");
-                    toggle.classList.add('fas','fa-bars','custom-button');
+                const toggle = document.getElementsByClassName('leaflet-control-layers-toggle')[0];
+                toggle.removeAttribute("href");
+                toggle.classList.add('fas','fa-bars','custom-button');
 
+                if (!_this.embedding) {
                     const settings_container = document.getElementsByClassName('leaflet-control-layers-list')[0];
                     const base = settings_container.childNodes[0];
                     const separator = settings_container.childNodes[1];
@@ -412,17 +561,40 @@ export default class Buttons {
                     settings_list.appendChild(_this.method);
                     settings_list.appendChild(_this.activity);
                     settings_list.appendChild(_this.units);
+                    settings_list.appendChild(_this.profile);
                     settings_list.appendChild(_this.chevrons);
                     settings_list.appendChild(_this.dist_markers);
 
                     settings_container.appendChild(settings_list);
                 }
+
                 _this.total = new Total(_this);
                 _this.openURLs();
             }
         }
-        xhr.open('GET', './res/mapbox_token.txt');
+        xhr.open('GET', '/res/mapbox_token.txt');
         xhr.send();
+    }
+
+    addSwitchMapboxLayers() {
+        const _this = this;
+        const layerSelectors = _this.controlLayers._layerControlInputs;
+        for (var i=0; i<layerSelectors.length; i++) {
+            const span = layerSelectors[i].nextSibling;
+            if (span.textContent.endsWith("Outdoors")) {
+                _this.mapboxOutdoorsSelector = layerSelectors[i];
+                _this.mapboxOutdoorsSelector.checked = (_this.mapboxMap == Object.values(_this.map._layers)[0]) && (_this.mapboxMap.options.style == "mapbox://styles/mapbox/outdoors-v11");
+                _this.mapboxOutdoorsSelector.addEventListener('click', function () {
+                    _this.mapboxMap.getMapboxMap().setStyle("mapbox://styles/mapbox/outdoors-v11", {diff: false});
+                });
+            } else if (span.textContent.endsWith("Satellite")) {
+                _this.mapboxSatelliteSelector = layerSelectors[i];
+                _this.mapboxSatelliteSelector.checked = (_this.mapboxMap == Object.values(_this.map._layers)[0]) && (_this.mapboxMap.options.style == "mapbox://styles/mapbox/satellite-v9");
+                _this.mapboxSatelliteSelector.addEventListener('click', function () {
+                    _this.mapboxMap.getMapboxMap().setStyle("mapbox://styles/mapbox/satellite-v9", {diff: false});
+                });
+            }
+        }
     }
 
     hideTraceButtons() {
@@ -438,6 +610,7 @@ export default class Buttons {
         this.color.classList.add('unselected','no-click');
         this.add_wpt.classList.add('unselected','no-click');
         this.reduce.classList.add('unselected','no-click');
+        this.hide.classList.add('unselected','no-click');
     }
 
     showTraceButtons() {
@@ -452,6 +625,7 @@ export default class Buttons {
         this.color.classList.remove('unselected','no-click');
         this.add_wpt.classList.remove('unselected','no-click');
         this.reduce.classList.remove('unselected','no-click');
+        this.hide.classList.remove('unselected','no-click');
         if (this.total.traces.length > 1) this.combine.classList.remove('unselected','no-click');
     }
 
@@ -529,6 +703,16 @@ export default class Buttons {
         this.edit.childNodes[0].classList.add('fa-pencil-alt');
     }
 
+    hideToUnhide() {
+        this.hide.childNodes[0].classList.remove('fa-eye-slash');
+        this.hide.childNodes[0].classList.add('fa-eye');
+    }
+
+    unhideToHide() {
+        this.hide.childNodes[0].classList.remove('fa-eye');
+        this.hide.childNodes[0].classList.add('fa-eye-slash');
+    }
+
     circlesToFront() {
         if (this.elev._startCircle) {
             this.elev._startCircle.bringToFront();
@@ -578,6 +762,7 @@ export default class Buttons {
     }
 
     addHandlersWithTotal(total) {
+        this.google = new Google(this);
         this.total = total;
         this.elev.total = total;
         const buttons = this;
@@ -587,7 +772,7 @@ export default class Buttons {
             draggable: ".tab-draggable",
             setData: function (dataTransfer, dragEl) {
                 const avgData = dragEl.trace.getAverageAdditionalData();
-                const data = total.outputGPX(false, true, avgData.hr, avgData.atemp, avgData.cad, dragEl.trace.index);
+                const data = total.outputGPX(false, true, avgData.hr, avgData.atemp, avgData.cad, avgData.power, dragEl.trace.index);
 
                 dataTransfer.setData('DownloadURL', 'application/gpx+xml:'+data[0].name+':data:text/plain;charset=utf-8,'+encodeURIComponent(data[0].text));
                 dataTransfer.dropEffect = 'copy';
@@ -620,6 +805,10 @@ export default class Buttons {
             gtag('event', 'button', {'event_category' : 'draw'});
         });
         this.add_wpt.addEventListener("click", function () {
+            if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
             buttons.disable_trace = true;
             map._container.style.cursor = 'crosshair';
             var mapboxgl_canvas = document.getElementsByClassName('mapboxgl-canvas');
@@ -652,6 +841,8 @@ export default class Buttons {
         });
         this.delete.addEventListener("click", function () {
             if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
             if (buttons.window_open) buttons.window_open.hide();
             buttons.window_open = buttons.delete_window;
             buttons.delete_window.show();
@@ -665,6 +856,9 @@ export default class Buttons {
         });
         this.zone_delete.addEventListener("click", function () {
             if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
             if (buttons.window_open) buttons.window_open.hide();
             buttons.window_open = buttons.zone_delete_window;
 
@@ -722,7 +916,7 @@ export default class Buttons {
             trace.deleteZone(buttons.zone_delete.rect.getBounds(),
                 buttons.zone_delete_pts.checked,
                 buttons.zone_delete_wpts.checked,
-                document.querySelector('input[name="where"]:checked').value == 'inside');
+                buttons.zone_delete_inside.checked);
             buttons.zone_delete_window.hide();
             gtag('event', 'button', {'event_category' : 'zone-delete'});
         });
@@ -754,6 +948,13 @@ export default class Buttons {
                     buttons.include_cad.checked = true;
                     buttons.include_cad.disabled = false;
                 }
+                if (!additionalData.power) {
+                    buttons.include_power.checked = false;
+                    buttons.include_power.disabled = true;
+                } else {
+                    buttons.include_power.checked = true;
+                    buttons.include_power.disabled = false;
+                }
                 if (!additionalData.atemp) {
                     buttons.include_atemp.checked = false;
                     buttons.include_atemp.disabled = true;
@@ -772,8 +973,9 @@ export default class Buttons {
             const hr = buttons.include_hr.checked;
             const atemp = buttons.include_atemp.checked;
             const cad = buttons.include_cad.checked;
+            const power = buttons.include_power.checked;
 
-            const output = total.outputGPX(mergeAll, time, hr, atemp, cad);
+            const output = total.outputGPX(mergeAll, time, hr, atemp, cad, power);
             for (var i=0; i<output.length; i++)
                 buttons.download(output[i].name, output[i].text);
 
@@ -882,6 +1084,9 @@ export default class Buttons {
                 buttons.activity.click();
             } else if (e.key === "F4") {
                 buttons.units.click();
+            } else if (e.key == "h" && (e.ctrlKey || e.metaKey)) {
+                buttons.show_profile.click();
+                e.preventDefault();
             } else if (e.key == "z" && (e.ctrlKey || e.metaKey)) {
                 buttons.undo.click();
                 e.preventDefault();
@@ -904,13 +1109,16 @@ export default class Buttons {
         });
         this.reverse.addEventListener("click", function() {
             if (total.hasFocus) return;
-            var trace = total.traces[total.focusOn];
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
             trace.reverse();
             gtag('event', 'button', {'event_category' : 'reverse'});
         });
         this.extract.addEventListener("click", function() {
             if (total.hasFocus) return;
-            var trace = total.traces[total.focusOn];
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
             if (!trace.can_extract) return;
             trace.extract_segments();
             gtag('event', 'button', {'event_category' : 'extract'});
@@ -921,6 +1129,9 @@ export default class Buttons {
         };
         this.reduce.addEventListener("click", function() {
             if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
             buttons.reduce.trace = total.traces[total.focusOn];
             if (buttons.window_open) buttons.window_open.hide();
             buttons.window_open = buttons.reduce_window;
@@ -965,28 +1176,30 @@ export default class Buttons {
         });
         this.time.addEventListener("click", function (e) {
             if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
 
             var content = `<div id="speed-change" style="padding-bottom:4px;">`;
 
             if (buttons.cycling) {
-                content += `Speed <input type="number" id="speed-input" min="1.0" max="99.9" step="0.1" lang="en-150"> `;
-                if (buttons.km) content += `km/h</div>`;
-                else content += `mi/h</div>`;
+                content += buttons.speed_text + ` <input type="number" id="speed-input" min="1.0" max="99.9" step="0.1" lang="en-150"> `;
+                if (buttons.km) content += buttons.unit_kilometers_text + '/' + buttons.unit_hours_text + `</div>`;
+                else content += buttons.unit_miles_text + '/' + buttons.unit_hours_text + `</div>`;
             } else {
-                content += `Pace <input type="number" id="minutes" min="1" max="59" step="1">
+                content += buttons.pace_text + ` <input type="number" id="minutes" min="1" max="59" step="1">
                             :
                             <input type="number" id="seconds" min="0" max="59" step="1"> `;
-                if (buttons.km) content += `min/km</div>`;
-                else content += `min/mi</div>`;
+                if (buttons.km) content += buttons.unit_minutes_text + '/' + buttons.unit_kilometers_text + `</div>`;
+                else content += buttons.unit_minutes_text + '/' + buttons.unit_miles_text + `</div>`;
             }
 
-            content += `<div id="start-change">Start
+            content += `<div id="start-change">`+buttons.start_text+`
                         <input type="datetime-local" id="start-time"></div></div><br>
-                        <div><b style="color:red">Experimental</b> Generate speed considering<br>the slope (erases all existing time data) <input type="checkbox" id="slope-speed"></div><br>
-                        <div id="edit-speed" class="panels custom-button normal-button">Ok</div>
-                        <div id="cancel-speed" class="panels custom-button normal-button"><b>Cancel</b></div>`;
+                        <div><b style="color:red; vertical-align:top">`+buttons.experimental_text+`</b>  <div style="max-width: 200px;display: inline-block;white-space: normal;">`+buttons.experimental_info_text+`</div><input type="checkbox" id="slope-speed" style="vertical-align:top"></div><br>
+                        <div id="edit-speed" class="panels custom-button normal-button">`+buttons.ok_button_text+`</div>
+                        <div id="cancel-speed" class="panels custom-button normal-button"><b>`+buttons.cancel_button_text+`</b></div>`;
 
-            const trace = total.traces[total.focusOn];
             if (buttons.window_open) buttons.window_open.hide();
             buttons.time.window = L.control.window(map,{title:'','content':content,className:'panels-container',visible:true,closeButton:false});
             buttons.window_open = buttons.time.window;
@@ -1062,8 +1275,11 @@ export default class Buttons {
         this.color.addEventListener("click", function () {
             if (total.hasFocus) return;
             const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
 
             buttons.color_picker.value = trace.normal_style.color;
+            buttons.opacity_slider.value = trace.normal_style.opacity;
             if (buttons.window_open) buttons.window_open.hide();
             buttons.window_open = buttons.color_window;
             buttons.color_window.show();
@@ -1071,9 +1287,34 @@ export default class Buttons {
         this.color_ok.addEventListener("click", function () {
             const trace = total.traces[total.focusOn];
             const color = buttons.color_picker.value;
+            const opacity = buttons.opacity_slider.value;
             total.changeColor(trace.normal_style.color, color);
             trace.normal_style.color = color;
             trace.focus_style.color = color;
+            trace.normal_style.opacity = opacity;
+            trace.focus_style.opacity = opacity;
+            if (buttons.color_checkbox.checked) total.same_color = true;
+            if (buttons.color_checkbox.checked || buttons.opacity_checkbox.checked) {
+                for (var i=0; i<total.traces.length; i++) {
+                    if (buttons.color_checkbox.checked) {
+                        total.traces[i].normal_style.color = color;
+                        total.traces[i].focus_style.color = color;
+                    }
+                    if (buttons.opacity_checkbox.checked) {
+                        total.traces[i].normal_style.opacity = opacity;
+                        total.traces[i].focus_style.opacity = opacity;
+                    }
+                    total.traces[i].gpx.setStyle(total.traces[i].normal_style);
+                }
+                if (buttons.color_checkbox.checked) {
+                    total.normal_style.color = color;
+                    total.focus_style.color = color;
+                }
+                if (buttons.opacity_checkbox.checked) {
+                    total.normal_style.opacity = opacity;
+                    total.focus_style.opacity = opacity;
+                }
+            }
             trace.gpx.setStyle(trace.focus_style);
             trace.showChevrons();
             trace.showDistanceMarkers();
@@ -1097,13 +1338,16 @@ export default class Buttons {
         this.duplicate.addEventListener("click", function () {
             if (total.hasFocus) return;
             const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
             trace.clone();
             gtag('event', 'button', {'event_category' : 'duplicate'});
         });
         this.combine.addEventListener("click", function () {
             if (total.traces.length <= 1) return;
-            if (buttons.window_open) buttons.window_open.hide();
             const trace = total.traces[total.focusOn];
+            if (trace.isEdited) return;
+            if (!trace.visible) trace.hideUnhide();
+            if (buttons.window_open) buttons.window_open.hide();
             total.to_merge = trace;
             buttons.window_open = buttons.merge_window;
             buttons.merge_window.show();
@@ -1113,6 +1357,12 @@ export default class Buttons {
         });
         this.merge_cancel.addEventListener("click", function () {
             buttons.merge_window.hide();
+        });
+        this.hide.addEventListener("click", function () {
+            if (total.hasFocus) return;
+            const trace = total.traces[total.focusOn];
+            trace.hideUnhide();
+            gtag('event', 'button', {'event_category' : 'hide'});
         });
         if (!this.embedding) {
             const openStreetView = function (e) {
@@ -1149,6 +1399,56 @@ export default class Buttons {
             if (buttons.show_distance) trace.showDistanceMarkers();
             else trace.hideDistanceMarkers();
         });
+        this.show_profile.addEventListener('input', function (e) {
+            if (buttons.show_profile.checked) {
+                buttons.trace_info_grid.style.gridAutoColumns = '';
+                buttons.elevation_profile.style.display = '';
+                buttons.live_distance.style.display = '';
+                buttons.live_elevation.style.display = '';
+                buttons.live_speed.style.display = '';
+                buttons.live_slope.style.display = '';
+                buttons.slide_container.style.display = '';
+                buttons.crop_container.style.display = 'block';
+
+                buttons.points.style.display = 'none';
+                buttons.points_info.style.display = 'none';
+                buttons.segments.style.display = 'none';
+                buttons.segments_info.style.display = 'none';
+
+                buttons.speed.style.gridColumn = '';
+                buttons.speed.style.gridRow = '';
+                buttons.speed_info.style.gridColumn = '';
+                buttons.speed_info.style.gridRow = '';
+                buttons.duration.style.gridColumn = '';
+                buttons.duration.style.gridRow = '';
+                buttons.duration_info.style.gridColumn = '';
+                buttons.duration_info.style.gridRow = '';
+
+            } else {
+                buttons.trace_info_grid.style.gridAutoColumns = 'auto';
+                buttons.elevation_profile.style.display = 'none';
+                buttons.live_distance.style.display = 'none';
+                buttons.live_elevation.style.display = 'none';
+                buttons.live_speed.style.display = 'none';
+                buttons.live_slope.style.display = 'none';
+                buttons.slide_container.style.display = 'none';
+                buttons.crop_container.style.display = 'none';
+
+                buttons.points.style.display = '';
+                buttons.points_info.style.display = '';
+                buttons.segments.style.display = '';
+                buttons.segments_info.style.display = '';
+
+                buttons.speed.style.gridColumn = '3 / span 1';
+                buttons.speed.style.gridRow = '1 / span 1';
+                buttons.speed_info.style.gridColumn = '3 / span 1';
+                buttons.speed_info.style.gridRow = '2 / span 1';
+                buttons.duration.style.gridColumn = '4 / span 1';
+                buttons.duration.style.gridRow = '1 / span 1';
+                buttons.duration_info.style.gridColumn = '4 / span 1';
+                buttons.duration_info.style.gridRow = '2 / span 1';
+            }
+        });
     }
 
     focusTabElement(tab) {
@@ -1184,15 +1484,53 @@ export default class Buttons {
         if (!urlParams.has('state')) return;
         const params = JSON.parse(urlParams.get('state'));
         if (!params.urls) return;
+
+        params.urls = [...new Set(params.urls)];
+
+        const sortable = this.sortable;
+        const total = this.total;
+        var countDone = 0, countOk = 0;
+        const onFinish = function () {
+            for (var j=1; j<sortable.el.children.length; j++) {
+                const tab = sortable.el.children[j];
+                const trace = tab.trace;
+                trace.index = j-1;
+                trace.key = null;
+                total.traces[trace.index] = trace;
+                if (trace.hasFocus) {
+                    total.focusOn = trace.index;
+                }
+            }
+        };
+
+        const index = {};
         for (var i=0; i<params.urls.length; i++) {
-            const href = decodeURIComponent(params.urls[i]);
+            index[params.urls[i]] = i;
+        }
+
+        for (var i=0; i<params.urls.length; i++) {
+            const file_url = params.urls[i];
+            const href = decodeURIComponent(file_url);
             if (href) {
                 const xhr = new XMLHttpRequest();
-                xhr.onreadystatechange = function() {
+                xhr.onreadystatechange = function () {
                     if (xhr.readyState == 4 && xhr.status == 200) {
                         const path = href.split('/');
                         const name = path.length ? path[path.length-1] : href;
-                        _this.total.addTrace(xhr.responseText, name);
+                        _this.total.addTrace(xhr.responseText, name, function (trace) {
+                            trace.key = file_url;
+                            countOk++;
+                            countDone++;
+                            for (var j=total.traces.length-countOk; j<total.traces.length-1; j++) {
+                                if (index[total.traces[j].key] > index[file_url]) {
+                                    sortable.el.appendChild(total.traces[j].tab);
+                                }
+                            }
+                            if (countDone == params.urls.length) onFinish();
+                        });
+                    } else if (xhr.readyState == 4 && xhr.status != 200) {
+                        countDone++;
+                        if (countDone == params.urls.length) onFinish();
                     }
                 }
                 xhr.open('GET', href);
@@ -1216,16 +1554,9 @@ export default class Buttons {
         document.body.removeChild(element);
     }
 
-     supportsWebGL() {
-       var canvas = document.createElement('canvas');
-       var supports = 'probablySupportsContext' in canvas
-           ? 'probablySupportsContext'
-           :  'supportsContext';
-
-       if (supports in canvas) {
-         return canvas[supports]('webgl') || canvas[supports]('experimental-webgl');
-       }
-
-       return 'WebGLRenderingContext' in window;
+    supportsWebGL() {
+        var canvas = document.createElement("canvas");
+        var gl = canvas.getContext("webgl") || canvas.getContext("experimental-webgl");
+        return (gl && gl instanceof WebGLRenderingContext);
    };
 }

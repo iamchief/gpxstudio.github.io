@@ -116,7 +116,7 @@ html, body {
 
 .padding-container {
     padding-left: 0px;
-    padding-bottom: 20px;
+    padding-bottom: 14px;
 }
 
 .trace-info {
@@ -126,7 +126,6 @@ html, body {
     align-items: center;
     grid-auto-columns: min-content;
     grid-auto-rows: min-content;
-    height: 131px;
 }
 
 .custom-button {
@@ -147,6 +146,7 @@ html, body {
     padding: 3px 6px;
     color: #535353;
     white-space: nowrap;
+    width: 15px;
 }
 
 .panels-info {
@@ -169,8 +169,8 @@ html, body {
 }
 
 #distance {
-  grid-column-start: 1 / span 1;
-  grid-row-start: 2 / span 1;
+  grid-column: 1 / span 1;
+  grid-row: 2 / span 1;
 }
 
 #distance-val {
@@ -180,7 +180,7 @@ html, body {
 
 #elevation {
   grid-column: 2 / span 1;
-  grid-row-start: 2 / span 1;
+  grid-row: 2 / span 1;
 }
 
 #elevation-val {
@@ -206,6 +206,26 @@ html, body {
 #duration-val {
   grid-column: 2 / span 1;
   grid-row: 3 / span 1;
+}
+
+#points {
+  grid-column: 5 / span 1;
+  grid-row: 2 / span 1;
+}
+
+#points-val {
+  grid-column: 5 / span 1;
+  grid-row: 1 / span 1;
+}
+
+#segments {
+  grid-column: 6 / span 1;
+  grid-row: 2 / span 1;
+}
+
+#segments-val {
+  grid-column: 6 / span 1;
+  grid-row: 1 / span 1;
 }
 
 #live-distance {
@@ -243,9 +263,9 @@ html, body {
   top: -12px; left: 0px;
 }
 
-.slidecontainer {
+#slide-container {
     width: 100%;
-    height: 75%;
+    height: 20px;
     grid-column: 3 / span 1;
     grid-row: 5 / span 1;
 }
@@ -290,14 +310,14 @@ html, body {
 
 #end-point.slider::-webkit-slider-thumb {
   background: #f74848;
-  background-image: url('./res/end.png');
+  background-image: url('/res/end.png');
   background-size: 20px;
   background-position: center center;
 }
 
 #end-point.slider::-moz-range-thumb {
   background: #f74848;
-  background-image: url('./res/end.png');
+  background-image: url('/res/end.png');
   background-size: 20px;
   background-position: center center;
 }
@@ -451,7 +471,7 @@ ul {
 
 #help-text {
     text-align: justify;
-    width: 750px;
+    width: 850px;
     line-height: 1.2;
     white-space: normal;
 }

@@ -71,8 +71,49 @@ export default class Google {
         const urlParams = new URLSearchParams(queryString);
         const params = JSON.parse(urlParams.get('state'));
         if (!params.ids) return;
-        for (var i=0; i<params.ids.length; i++)
-            this.downloadFile({id:params.ids[i], name:'track.gpx'}, params.hasOwnProperty('userId') && !private_mode);
+
+        params.ids = [...new Set(params.ids)];
+
+        const sortable = this.buttons.sortable;
+        const total = this.buttons.total;
+        var countDone = 0, countOk = 0;
+
+        const index = {};
+        for (var i=0; i<params.ids.length; i++) if (index[params.ids[i]] === undefined) {
+            index[params.ids[i]] = i;
+        }
+
+        for (var i=0; i<params.ids.length; i++) {
+            const file_id = params.ids[i];
+            this.downloadFile(
+                {id:file_id, name:'track.gpx'},
+                params.hasOwnProperty('userId') && !private_mode,
+                function (trace) {
+                    countDone++;
+                    if (trace) {
+                        countOk++;
+                        trace.key = file_id;
+                        for (var j=total.traces.length-countOk; j<total.traces.length-1; j++) {
+                            if (index[total.traces[j].key] > index[file_id]) {
+                                sortable.el.appendChild(total.traces[j].tab);
+                            }
+                        }
+                    }
+                    if (countDone == params.ids.length) {
+                        for (var j=1; j<sortable.el.children.length; j++) {
+                            const tab = sortable.el.children[j];
+                            const trace = tab.trace;
+                            trace.index = j-1;
+                            trace.key = null;
+                            total.traces[trace.index] = trace;
+                            if (trace.hasFocus) {
+                                total.focusOn = trace.index;
+                            }
+                        }
+                    }
+                }
+            );
+        }
     }
 
     loadPicker(folderMode) {
@@ -155,9 +196,9 @@ export default class Google {
             const hr = buttons.include_hr.checked;
             const atemp = buttons.include_atemp.checked;
             const cad = buttons.include_cad.checked;
+            const power = buttons.include_power.checked;
 
-            this.fileIds = [];
-            this.checkAllFilesInFolder(data.docs[0].id, buttons.total.outputGPX(mergeAll, time, hr, atemp, cad));
+            this.checkAllFilesInFolder(data.docs[0].id, buttons.total.outputGPX(mergeAll, time, hr, atemp, cad, power));
 
             buttons.export_window.hide();
             this.window = L.control.window(this.buttons.map,{title:'',content:'Uploading...',className:'panels-container',closeButton:false,visible:true});
@@ -173,22 +214,24 @@ export default class Google {
             'method': 'GET',
             'params': {'q': "'" + folderId + "' in parents and trashed=false"},
             callback: function (resp) {
+                _this.fileIds = [];
+                _this.completed = 0;
                 for (var i=0; i<output.length; i++) {
                     var replace = false;
                     for (var j=0; j<resp.items.length; j++) {
                         if (resp.items[j].title == output[i].name) {
-                            _this.saveFile(output[i].name, output[i].text, folderId, output.length, resp.items[j].id);
+                            _this.saveFile(output[i].name, output[i].text, folderId, i, output.length, resp.items[j].id);
                             replace = true;
                             break;
                         }
                     }
-                    if (!replace) _this.saveFile(output[i].name, output[i].text,  folderId, output.length);
+                    if (!replace) _this.saveFile(output[i].name, output[i].text,  folderId, i, output.length);
                 }
             }
         });
     }
 
-    saveFile(filename, filecontent, folderid, number, fileId) {
+    saveFile(filename, filecontent, folderid, index, number, fileId) {
         var file = new Blob([filecontent], {type: 'text/xml'});
         var metadata = {
             'title': filename,
@@ -205,7 +248,8 @@ export default class Google {
             metadata: metadata,
             onComplete: function (resp) {
                 const ans = JSON.parse(resp);
-                _this.fileIds.push(ans.id);
+                _this.completed++;
+                _this.fileIds[index] = ans.id;
                 var request = gapi.client.request({
                     'path': '/drive/v3/files/' + ans.id + '/permissions',
                     'method': 'POST',
@@ -220,8 +264,8 @@ export default class Google {
                 });
                 request.execute();
 
-                if (_this.fileIds.length == number) {
-                    var url = 'https://gpxstudio.github.io/?state=%7B%22ids%22:%5B%22';
+                if (_this.completed == number) {
+                    var url = 'https://gpxstudio.github.io'+window.location.pathname.replace('index.html','')+'?state=%7B%22ids%22:%5B%22';
                     for (var i=0; i<_this.fileIds.length; i++) {
                         url += _this.fileIds[i];
                         if (i<_this.fileIds.length-1) url += '%22,%22';
@@ -254,7 +298,7 @@ export default class Google {
         uploader.upload();
     }
 
-    downloadFile(file, auth) {
+    downloadFile(file, auth, callback) {
         if (file.name.split('.').pop() != 'gpx') return;
         const buttons = this.buttons;
 
@@ -279,7 +323,9 @@ export default class Google {
                     }
                     xhr.onreadystatechange = function () {
                         if (xhr.readyState == 4 && xhr.status == 200) {
-                            buttons.total.addTrace(xhr.response, resp.title);
+                            const trace = buttons.total.addTrace(xhr.response, resp.title, callback);
+                        } else if (xhr.readyState == 4 && xhr.status != 200) {
+                            if (callback) callback();
                         }
                     }
                     xhr.send();

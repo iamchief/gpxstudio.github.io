@@ -553,7 +553,8 @@ L.GPX = L.FeatureGroup.extend({
       hr: {avg: 0, _total: 0, _points: []},
       duration: {start: null, end: null, moving: 0, total: 0},
       atemp: {avg: 0, _total: 0, _points: []},
-      cad: {avg: 0, _total: 0, _points: []}
+      cad: {avg: 0, _total: 0, _points: []},
+      power: {avg: 0, _total: 0, _points: []}
     };
   },
 
@@ -627,6 +628,18 @@ L.GPX = L.FeatureGroup.extend({
             this._trace.normal_style.color = color[0].textContent;
             this._trace.focus_style.color = color[0].textContent;
             this._trace.set_color = true;
+        }
+    }
+
+    var opacity = xml.getElementsByTagName('opacity');
+    if (opacity.length > 0) {
+        var op = parseFloat(opacity[0].textContent);
+        if (op >= 0 && op <= 1) {
+            this._trace.normal_style.opacity = op;
+            this._trace.focus_style.opacity = op;
+        } else if (op >= 0 && op <= 100) {
+            this._trace.normal_style.opacity = op/100;
+            this._trace.focus_style.opacity = op/100;
         }
     }
 
@@ -767,25 +780,25 @@ L.GPX = L.FeatureGroup.extend({
                   });
                   marker.bindPopup(popup).openPopup();
                   popup.setContent(`<div style="width: 200px; display: inline-block; overflow-wrap: break-word;">
-                                        `+(trace.buttons.embedding ? '' : (`<div style="float: right;"><i id="edit`+popup._leaflet_id+`" class="fas fa-pencil-alt custom-button" style="display: inline-block" title="Edit info"></i> <i id="clone`+popup._leaflet_id+`" class="fas fa-copy custom-button" style="display: inline-block" title="Duplicate"></i> <i id="delete`+popup._leaflet_id+`" class="fas fa-trash-alt custom-button" style="display: inline-block" title="Delete"></i></div>`))+`
-                                        <div class="wpt-cmt"><b>`+(marker.name.length > 0 ? marker.name : 'empty title')+`</b></div>
+                                        `+(trace.buttons.embedding ? '' : (`<div style="float: right;"><i id="edit`+popup._leaflet_id+`" class="fas fa-pencil-alt custom-button" style="display: inline-block" title="`+trace.buttons.edit_info_text+`"></i> <i id="clone`+popup._leaflet_id+`" class="fas fa-copy custom-button" style="display: inline-block" title="`+trace.buttons.duplicate_text+`"></i> <i id="delete`+popup._leaflet_id+`" class="fas fa-trash-alt custom-button" style="display: inline-block" title="`+trace.buttons.delete_text+`"></i></div>`))+`
+                                        <div class="wpt-cmt"><b>`+(marker.name.length > 0 ? marker.name : trace.buttons.empty_title_text)+`</b></div>
                                         <div class="wpt-cmt">`+(marker.cmt.length > 0 ? (marker.cmt + '<br>') : '')+`<i class="wpt-cmt">`+marker.desc+`</i></div>
                                     </div>`);
                   if (!trace.buttons.embedding) {
                       const edit = document.getElementById('edit' + popup._leaflet_id);
                       edit.addEventListener('click', function () {
                           popup.setContent(`<div style="width: 300px; display: inline-block; overflow-wrap: break-word;">
-                                         <div>Name</div>
+                                         <div>`+trace.buttons.name_text+`</div>
                                          <div id="name`+popup._leaflet_id+`" contenteditable class="wpt-input"></div>
-                                         <div>Comment (for GPS devices)</div>
+                                         <div>`+trace.buttons.comment_text+`</div>
                                          <div id="cmt`+popup._leaflet_id+`" contenteditable class="wpt-input"></div>
-                                         <div>Description (for users)</div>
+                                         <div>`+trace.buttons.description_text+`</div>
                                          <div id="desc`+popup._leaflet_id+`" contenteditable class="wpt-input"></div>
-                                         <label for="sym`+popup._leaflet_id+`">Symbol</label><br>
+                                         <label for="sym`+popup._leaflet_id+`">`+trace.buttons.symbol_text+`</label><br>
                                          <select type="text" id="sym`+popup._leaflet_id+`" name="sym`+popup._leaflet_id+`" style="width: 100%"></select><br>
                                          <div style="text-align: center">
-                                            <div id="change`+popup._leaflet_id+`" class="panels custom-button normal-button">Ok</div>
-                                            <div id="cancel`+popup._leaflet_id+`" class="panels custom-button normal-button"><b>Cancel</b></div>
+                                            <div id="change`+popup._leaflet_id+`" class="panels custom-button normal-button">`+trace.buttons.ok_button_text+`</div>
+                                            <div id="cancel`+popup._leaflet_id+`" class="panels custom-button normal-button"><b>`+trace.buttons.cancel_button_text+`</b></div>
                                          </div></div>`);
                           const name = document.getElementById('name'+popup._leaflet_id);
                           const cmt = document.getElementById('cmt'+popup._leaflet_id);
@@ -858,6 +871,7 @@ L.GPX = L.FeatureGroup.extend({
     var markers = [];
     var layers = [];
     var last = null;
+    var last_ele = null;
 
     for (var i = 0; i < el.length; i++) {
       var _, ll = new L.LatLng(
@@ -914,6 +928,20 @@ L.GPX = L.FeatureGroup.extend({
         this._info.atemp._total += ll.meta.atemp;
       }
 
+      _ = el[i].getElementsByTagNameNS('*', 'power');
+      if (_.length > 0) {
+        ll.meta.power = parseInt(_[0].textContent);
+        this._info.power._points.push([this._info.length, ll.meta.power]);
+        this._info.power._total += ll.meta.power;
+      } else {
+          _ = el[i].getElementsByTagNameNS('*', 'PowerInWatts');
+          if (_.length > 0) {
+            ll.meta.power = parseInt(_[0].textContent);
+            this._info.power._points.push([this._info.length, ll.meta.power]);
+            this._info.power._total += ll.meta.power;
+          }
+      }
+
       if (ll.meta.ele > this._info.elevation.max) {
         this._info.elevation.max = ll.meta.ele;
       }
@@ -929,11 +957,16 @@ L.GPX = L.FeatureGroup.extend({
         const dist = this._dist2d(last, ll);
         this._info.length += dist;
 
-        var t = ll.meta.ele - last.meta.ele;
-        if (t > 0) {
-          this._info.elevation.gain += t;
-        } else {
-          this._info.elevation.loss += Math.abs(t);
+        if (last_ele == null) last_ele = ll;
+        var t = ll.meta.ele - last_ele.meta.ele;
+        const dist_to_last_ele = this._dist2d(last_ele, ll);
+        if (Math.abs(t) > 20 || dist_to_last_ele > 120) {
+            if (t > 0) {
+              this._info.elevation.gain += t;
+            } else {
+              this._info.elevation.loss += Math.abs(t);
+            }
+            last_ele = ll;
         }
 
         t = Math.abs(ll.meta.time - last.meta.time);
